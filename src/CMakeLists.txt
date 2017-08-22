@@ -1,6 +1,6 @@
 add_subdirectory(libtriton)
 
-if(PINTOOL)
+if(PINTOOL OR UNICORN)
   add_subdirectory(tracer)
 endif()
 

@@ -11,6 +11,7 @@ project(triton)
 
 # Define cmake options
 option(PINTOOL "Build Triton with the Pin tool as tracer" OFF)
+option(UNICORN "Build Triton with the Unicorn Engine as tracer" OFF)
 option(KERNEL4 "Pin will run on a Linux's kernel v4" ON)
 option(PYTHON_BINDINGS "Enable Python bindings into the libtriton" ON)
 option(STATICLIB "Build a static library" OFF)
@@ -18,6 +19,10 @@ option(INCBUILD "Increment the build number" OFF)
 option(GCOV "Enable code coverage" OFF)
 
 if(PINTOOL AND NOT PYTHON_BINDINGS)
+  MESSAGE(FATAL_ERROR "You can't have pintools without python binding.")
+endif()
+
+if(UNICORN AND NOT PYTHON_BINDINGS)
   MESSAGE(FATAL_ERROR "You can't have pintools without python binding.")
 endif()
 
@@ -131,6 +136,10 @@ endif()
 
 # Use the same ABI as pin
 if(PINTOOL)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0")
+endif()
+
+if(UNICORN)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_USE_CXX11_ABI=0")
 endif()
 

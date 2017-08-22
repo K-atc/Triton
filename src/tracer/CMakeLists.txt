@@ -1,3 +1,8 @@
 if(PINTOOL)
+  message(status "tracer PINTOOL is enabled")
   add_subdirectory(pin)
+endif()
+if(UNICORN)
+  message(status "tracer UNICORN is enabled")
+  add_subdirectory(unicorn)
 endif()
