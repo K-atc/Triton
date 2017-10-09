@@ -31,8 +31,8 @@ namespace tracer {
       //     }
       //   }
       // }
-      fprintf(stderr, "traver::unicorn::getBaseAddress is not implemented\n");
-      return 0;
+      fprintf(stderr, "[tracer:Warn] tracer::unicorn::getBaseAddress is not implemented\n");
+      return 0x10000;
     }
 
 
@@ -52,7 +52,7 @@ namespace tracer {
       //     }
       //   }
       // }
-      fprintf(stderr, "traver::unicorn::getImageName is not implemented\n");
+      fprintf(stderr, "[tracer:Warn] tracer::unicorn::getImageName is not implemented\n");
       return "";
     }
 
@@ -73,7 +73,7 @@ namespace tracer {
       // if (RTN_Valid(rtn)) {
       //   return RTN_Name(rtn);
       // }
-      fprintf(stderr, "traver::unicorn::getRoutineName is not implemented\n");
+      fprintf(stderr, "[tracer:Warn] traver::unicorn::getRoutineName is not implemented\n");
       return "";
     }
 

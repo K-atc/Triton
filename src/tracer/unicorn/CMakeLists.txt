@@ -96,11 +96,11 @@ file(
     ${CMAKE_SOURCE_DIR}/src/tracer/unicorn/*
 )
 
-# libuc.a is temporaly library file
-add_library("uc" STATIC ${UNICORN_SOURCE_FILES})
-target_link_libraries("uc")
-add_executable(${PROJECT_UNICORN} ${UNICORN_SOURCE_FILES})
-target_link_libraries(${PROJECT_UNICORN} "uc")
+### libuc.a is temporaly library file
+# add_library("uc" STATIC ${UNICORN_SOURCE_FILES})
+# target_link_libraries("uc")
+add_executable(${PROJECT_UNICORN} ${UNICORN_SOURCE_FILES}) ### to output "unicorn-tracer"
+# add_library(${PROJECT_UNICORN} SHARED ${UNICORN_SOURCE_FILES}) ### to output "libunicorn-tracer.so"
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux" OR ${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
     # target_link_libraries(${PROJECT_UNICORN} unicorn xed pindwarf dl ${PROJECT_LIBTRITON})

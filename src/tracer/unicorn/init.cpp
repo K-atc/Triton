@@ -142,7 +142,7 @@ namespace tracer {
 
     void initBindings(void) {
       /* Setup unicorn bindings */
-      PyObject* unicornModule = Py_InitModule("unicorn", tracer::unicorn::unicornCallbacks);
+      PyObject* unicornModule = Py_InitModule("unicorn_tracer", tracer::unicorn::unicornCallbacks);
 
       if (unicornModule == nullptr) {
         std::cerr << "Failed to initialize the unicorn bindings" << std::endl;

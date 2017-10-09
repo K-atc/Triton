@@ -6,14 +6,32 @@
 #include <capstone/capstone.h>
 #include <keystone/keystone.h>
 
+// for file oparation
+#include <sys/stat.h>
+#include <fstream>
+#include <iostream>
+#include <string>
+#include <iterator>
+
+/* for unicorn engine */
 uc_engine* uc;
 uc_hook uh_syscall, uh_interrupt;
 
+/* for capstone engine */
 csh csh_handle;
 
+/* for runtime tracer */
 struct tracer_env tracer_env;
-
+const char* ucBinFileName;
 const char* ucPythonScriptFileName;
+
+static void printBin(unsigned char* bin, size_t size)
+{
+    for(int i = 0; i < size; i++){
+        printf("%02x ", bin[i]);
+    }
+    puts("\n");
+}
 
 // orig: samples/shellcode.c
 static void hook_intr(uc_engine *uc, uint32_t intno, void *user_data)
@@ -54,30 +72,55 @@ static void hook_intr(uc_engine *uc, uint32_t intno, void *user_data)
     }
 }
 
+uc_file_type UC_DetectFileType(const char* file_name)
+{
+    fprintf(stderr, "[tracer:Warn] UC_DetectFileType is not implemented. returning UC_FILE_BIN\n");
+    return UC_FILE_BIN;
+}
+
+// orig: https://techoverflow.net/2013/08/21/how-to-get-filesize-using-stat-in-cc/
+size_t UC_GetFileSize(const char* file_name)
+{
+    struct stat st;
+    if(stat(file_name, &st) != 0) {
+        return 0;
+    }
+    return st.st_size; 
+}
+
 void UC_InitSymbols(void)
 {
     // TODO: load symbols
-    fprintf(stderr, "UC_InitSymbols is not implemented\n");
+    fprintf(stderr, "[tracer:Warn] UC_InitSymbols is not implemented\n");
 }
 
 bool UC_Init(int argc, char *argv[])
 {
-    // if (argc <= 1) {
-    //     return false; 
-    // }
-    if (argc > 1) {
+    if (argc <= 2) {
+        return false; 
+    }
+    if (argc > 2) {
         ucPythonScriptFileName = argv[1];
+        ucBinFileName = argv[2];
     }
 
     uc_err err;
     err = uc_open(UC_ARCH_X86, UC_MODE_64, &uc);
+    
+    uc_file_type file_type = UC_DetectFileType(ucBinFileName);
+    if (file_type == UC_FILE_BIN) {
+        printf("[tracer:Debug] bin file mode\n");
+        UC_LoadBinaryFromBinFile(ucBinFileName);
+    }
+
     if (err) {
-        fprintf(stderr, "Failed on uc_open with error returned: %u\n", err);
+        fprintf(stderr, "[tracer:Error] Failed on uc_open with error returned: %u\n", err);
         return false;
     }
-    if (cs_open(CS_ARCH_X86, CS_MODE_64, &csh_handle) != CS_ERR_OK)
-        fprintf(stderr, "Failed on cs_open\n");
-        return -1;
+    if (cs_open(CS_ARCH_X86, CS_MODE_64, &csh_handle) != CS_ERR_OK) {
+        fprintf(stderr, "[tracer:Error] Failed on cs_open\n");
+        return false;
+    }
     return true;
 }
 
@@ -122,15 +165,15 @@ bool UC_CheckWriteAccess(void *addr)
 
 void UC_Detach()
 {
-    fprintf(stderr, "UC_Detach is not implemented");
+    fprintf(stderr, "[tracer:Warn] UC_Detach is not implemented");
 }
 
 void UC_StartProgram()
 {
     // TODO: start, until 
-    fprintf(stderr, "[!] param end of uc_emu_start is not correct\n");
+    fprintf(stderr, "[tracer:Warn] param end of uc_emu_start is not correct\n");
     // uc_emu_start(uc, tracer_env.emuStartAddr, 0x1000, 0, 0); // timeout = 0, count = 0
-    uc_emu_start(uc, tracer_env.emuStartAddr, 0x1000, 0, 1); // timeout = 0, count = 0
+    uc_emu_start(uc, tracer_env.emuStartAddr, 0x1000, 0, 3); // timeout = 0, count = 0
 }
 
 void UC_GetContextRegval(CONTEXT *ctxt, REG reg, UINT8 *val)
@@ -139,7 +182,7 @@ void UC_GetContextRegval(CONTEXT *ctxt, REG reg, UINT8 *val)
     struct uc_context *tmp_ctx;
     err = uc_context_alloc(uc, &ctxt);
     if (err) {
-        fprintf(stderr, "Failed on uc_context_alloc() with error returned: %u\n", err);
+        fprintf(stderr, "[tracer:Error] Failed on uc_context_alloc() with error returned: %u\n", err);
         return;
     }
     uc_context_save(uc, tmp_ctx);
@@ -154,7 +197,7 @@ void UC_SetContextRegval(CONTEXT *ctxt, REG reg, UINT8 *val)
     struct uc_context *tmp_ctx;
     err = uc_context_alloc(uc, &ctxt);
     if (err) {
-        fprintf(stderr, "Failed on uc_context_alloc() with error returned: %u\n", err);
+        fprintf(stderr, "[tracer:Error] Failed on uc_context_alloc() with error returned: %u\n", err);
         return;
     }
     uc_context_save(uc, tmp_ctx);
@@ -167,7 +210,7 @@ void UC_SetContextRegval(CONTEXT *ctxt, REG reg, UINT8 *val)
 void UC_ExecuteAt(const CONTEXT *ctxt)
 {
     // FIXME:
-    fprintf(stderr, "UC_ExecuteAt is not implemented\n");
+    fprintf(stderr, "[tracer:Warn] UC_ExecuteAt is not implemented\n");
 }
 
 uc_err UC_SaveContext(CONTEXT *ctxtFrom, CONTEXT *ctxtTo)
@@ -187,19 +230,60 @@ uc_err UC_SaveContext(CONTEXT *ctxtFrom, CONTEXT *ctxtTo)
 uc_err UC_LoadBinary(unsigned char *bin, int begin, int size)
 {
     uc_err err;
-    // map 2MB memory for this emulation
-    err = uc_mem_map(uc, begin, 2 * 1024 * 1024, UC_PROT_ALL);
+
+    // allocate memory 
+    int alignment = 2 * 1024 * 1024;
+    int map_size = size;
+    if (map_size % alignment) { // check 4 KB alignment
+        map_size += alignment - (size % alignment);
+        fprintf(stderr, "[tracer:Info] param size is not 2 MB aligned. New size is 0x%x\n", map_size);
+    }
+    fprintf(stderr, "[tracer:Debug] uc_mem_map(uc=%p, begin=0x%x, size=0x%x, UC_PROT_ALL)\n", uc, begin, bin, map_size);
+    err = uc_mem_map(uc, begin, map_size, UC_PROT_ALL);
     if (err) {
-      fprintf(stderr, "Failed to map memory, quit!\n");
+      fprintf(stderr, "[tracer:Error] Failed to map memory, quit!\n");
       return err;
     }
+    // map_add("no_name", begin, begin + map_size - 1);
 
     // load binary
+    fprintf(stderr, "[tracer:Debug] uc_mem_write(uc=%p, begin=0x%x, bin=%p, size=0x%x)\n", uc, begin, bin, size);
     err = uc_mem_write(uc, begin, bin, size);
     if (err) {
-      fprintf(stderr, "Failed to write emulation code to memory, quit!\n");
+      fprintf(stderr, "[tracer:Error] Failed to write emulation code to memory, quit!\n");
       return err;
     }
+}
+
+// @return read byte size
+static size_t readFileAll(const char* file_name, unsigned char* read_to, size_t size)
+{
+    if (read_to == nullptr) {
+        fprintf(stderr, "in readfileAll, param read_to is nullptr. exit\n");
+        return 0;
+    }
+    std::ifstream ifs(file_name);
+    if (ifs.fail()) {
+        fprintf(stderr, "Fialed to read %s. exit\n", file_name);
+        return 0;
+    }
+    std::string read_to_str((std::istreambuf_iterator<char>(ifs)),
+        std::istreambuf_iterator<char>());
+    memset(read_to, 0, size);
+    memcpy(read_to, read_to_str.c_str(), size);
+    return strlen((char *) read_to);
+}
+
+uc_err UC_LoadBinaryFromBinFile(const char* file_name)
+{
+    size_t file_size = UC_GetFileSize(ucBinFileName);
+    unsigned char* bin;
+    bin = (unsigned char*) malloc(file_size);
+    readFileAll(file_name, bin, file_size);
+    fprintf(stderr, "[tracer:Debug] loaded binary:\n");
+    printBin(bin, file_size);
+    UC_LoadBinary(bin, BIN_FILE_BASE_ADDR, file_size);
+    UC_SetEmuStartAddr(BIN_FILE_BASE_ADDR);
 }
 
 void UC_SetEmuStartAddr(int start)
@@ -289,3 +373,4 @@ ks_err KS_Encode(const char *code, unsigned char **encode, size_t *size)
         ks_close(ks);
         return KS_ERR_OK;
 }
+

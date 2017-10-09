@@ -534,65 +534,113 @@ namespace tracer {
       // PIN_UnlockClient();
     }
 
-
-    // /* Callback before instruction processing */
+    /* Callback before instruction processing */
     // static void callbackBefore(triton::arch::Instruction* tritonInst, triton::uint8* addr, triton::uint32 size, CONTEXT* ctx, THREADID threadId) {
-    //   /* Some configurations must be applied before processing */
-    //   tracer::unicorn::callbacks::preProcessing(tritonInst, threadId);
+    static void callbackBefore(uc_engine *uc, uint64_t address, uint32_t size, void *user_data) {
+      // print_code(uc, address, size, user_data);
 
-    //   if (!tracer::unicorn::analysisTrigger.getState() || threadId != tracer::unicorn::options::targetThreadId)
-    //   /* Analysis locked */
-    //     return;
+      CONTEXT* ctx;
+      uc_context_alloc(uc, &ctx);
+      uc_context_save(uc, ctx);
+      THREADID threadId = ((struct user_data_for_triton *) user_data)->threadId;
 
-    //   /* Mutex */
-    //   // PIN_LockClient();
+      /* Setup Triton information */
+      triton::uint8* addr;
+      uc_err err;
+      addr = (triton::uint8*) &address;
+      unsigned char bytes[16];
+      memset(bytes, 0, sizeof(bytes));
+      err = uc_mem_read(uc, address, bytes, size);
+      if (err) {
+        fprintf(stderr, "[tracer:Error] reading inst failed\n");
+        exit(1);
+      }
+      if (bytes[0] == 0 && bytes[1] == 0) {
+        fprintf(stderr, "[tracer:Warn] invalid instruction given. Omitting (at address 0x%lx).\n", address);
+        return;
+      }
+      triton::arch::Instruction* tritonInst;
+      triton::arch::Instruction tmp;
+      tritonInst = &tmp;
+      // tritonInst->partialReset();
+      tritonInst->setOpcodes(bytes, size);
+      tritonInst->setAddress((triton::uint64) address);
+      // tritonInst->setThreadId(reinterpret_cast<triton::uint32>(threadId));
 
-    //   /* Update CTX */
-    //   tracer::unicorn::context::lastContext = ctx;
+      /* Some configurations must be applied before processing */
+      tracer::unicorn::callbacks::preProcessing(tritonInst, threadId);
 
-    //   /* Setup Triton information */
-    //   tritonInst->partialReset();
-    //   tritonInst->setOpcodes(addr, size);
-    //   tritonInst->setAddress(reinterpret_cast<triton::__uint>(addr));
-    //   tritonInst->setThreadId(reinterpret_cast<triton::uint32>(threadId));
+      // TODO: 
+      // if (!tracer::unicorn::analysisTrigger.getState() || threadId != tracer::unicorn::options::targetThreadId)
+      // /* Analysis locked */
+      //   return;
 
-    //   /* Disassemble the instruction */
-    //   triton::api.disassembly(*tritonInst);
+      /* Mutex */
+      // PIN_LockClient();
 
-    //   /* Execute the Python callback before the IR processing */
-    //   if (tracer::unicorn::context::mustBeExecuted == false)
-    //     tracer::unicorn::callbacks::beforeIRProc(tritonInst);
-    //   else
-    //     tracer::unicorn::context::mustBeExecuted = false;
+      /* Update CTX */
+      tracer::unicorn::context::lastContext = ctx;
 
-    //   /* Check if we must execute a new context */
-    //   if (tracer::unicorn::context::mustBeExecuted == true) {
-    //     tritonInst->reset();
-    //     tracer::unicorn::context::executeContext();
-    //   }
+      /* Disassemble the instruction */
+      triton::api.disassembly(*tritonInst);      
 
-    //   /* Synchronize gliches between Pintool and libTriton */
-    //   tracer::unicorn::context::synchronizeContext();
+      /* Execute the Python callback before the IR processing */
+      if (tracer::unicorn::context::mustBeExecuted == false)
+        tracer::unicorn::callbacks::beforeIRProc(tritonInst);
+      else
+        tracer::unicorn::context::mustBeExecuted = false;
 
-    //   /* Process the IR and taint */
-    //   triton::api.buildSemantics(*tritonInst);
+      /* Check if we must execute a new context */
+      if (tracer::unicorn::context::mustBeExecuted == true) {
+        tritonInst->reset();
+        tracer::unicorn::context::executeContext();
+      }
 
-    //   /* Execute the Python callback */
-    //   if (tracer::unicorn::context::mustBeExecuted == false)
-    //     tracer::unicorn::callbacks::before(tritonInst);
+      /* Synchronize glitches between Unicorn and libTriton */
+      fprintf(stderr, "[tracer:Warn] tracer::unicorn::context::synchronizeContext is missing\n");
+      #if 0 // TODO
+      tracer::unicorn::context::synchronizeContext();
+      #endif
 
-    //   /* Check if we must restore the snapshot */
-    //   if (tracer::unicorn::snapshot.mustBeRestored() == true) {
-    //     tritonInst->reset();
-    //     tracer::unicorn::snapshot.restoreSnapshot(ctx);
-    //   }
+      /* Process the IR and taint */
+      triton::api.buildSemantics(*tritonInst);
 
-    //   /* Some configurations must be applied after processing */
-    //   tracer::unicorn::callbacks::postProcessing(tritonInst, threadId);
+      //// api.processing(*tritonInst); // DO NOT CALL processing() AT THE MOMENT. CREATES UNNECESSARY SYMBOLS!! (is this true?)
 
-    //   /* Mutex */
-    //   // PIN_UnlockClient();
-    // }
+      std::cout << "~~~~~~~" << std::endl;
+      std::cout << tritonInst << std::endl;
+      for (unsigned int op_index = 0; op_index != tritonInst->operands.size(); op_index++) {
+        std::cout << "\tOperand " << op_index << ": " << tritonInst->operands[op_index] << std::endl;
+        if (tritonInst->operands[op_index].getType() == OP_MEM) {
+          std::cout << "\t   base  : " << tritonInst->operands[op_index].getMemory().getBaseRegister() << std::endl;
+          std::cout << "\t   index : " << tritonInst->operands[op_index].getMemory().getIndexRegister() << std::endl;
+          std::cout << "\t   disp  : " << tritonInst->operands[op_index].getMemory().getDisplacement() << std::endl;
+          std::cout << "\t   scale : " << tritonInst->operands[op_index].getMemory().getScale() << std::endl;
+        }
+      }
+      std::cout << "\t----------" << std::endl;
+      for (unsigned int exp_index = 0; exp_index != tritonInst->symbolicExpressions.size(); exp_index++) {
+        auto expr = tritonInst->symbolicExpressions[exp_index];
+        std::cout << "\tSymExpr " << exp_index << ": " << expr << std::endl;
+      }
+      std::cout << std::endl;    
+
+      /* Execute the Python callback */
+      if (tracer::unicorn::context::mustBeExecuted == false)
+        tracer::unicorn::callbacks::before(tritonInst);
+
+      /* Check if we must restore the snapshot */
+      if (tracer::unicorn::snapshot.mustBeRestored() == true) {
+        tritonInst->reset();
+        tracer::unicorn::snapshot.restoreSnapshot(ctx);
+      }
+
+      /* Some configurations must be applied after processing */
+      tracer::unicorn::callbacks::postProcessing(tritonInst, threadId);
+
+      /* Mutex */
+      // PIN_UnlockClient();
+    }
 
 
     // /* Callback after instruction processing */
@@ -952,15 +1000,6 @@ namespace tracer {
     //           IARG_END);
     //       }
 
-    //       /* Callback before */
-    //       INS_InsertCall(ins, IPOINT_BEFORE, (AFUNPTR)callbackBefore,
-    //         IARG_PTR, tritonInst,
-    //         IARG_INST_PTR,
-    //         IARG_UINT32, INS_Size(ins),
-    //         IARG_CONTEXT,
-    //         IARG_THREAD_ID,
-    //         IARG_END);
-
     //       /* Callback after */
     //       /* Syscall after context must be catcher with INSERT_POINT.SYSCALL_EXIT */
     //       if (INS_IsSyscall(ins) == false) {
@@ -985,9 +1024,9 @@ namespace tracer {
 
 
     /* Usage function */
-    static triton::sint32 Usage() {
+    static triton::sint32 Usage(char* argv[]) {
       // std::cerr << KNOB_BASE::StringKnobSummary() << std::endl;
-      std::cerr << "usage: TODO" << std::endl;
+      std::cerr << "usage: " << argv[0] << " AnalysisPythonScript BinaryFile" << std::endl;
       return -1;
     }
 
@@ -996,12 +1035,15 @@ namespace tracer {
     // Syntax: ./triton <your_script.py> <target binary> [target binary args]
     // @param argc count of [target binary args]
     // @param argv [target binary args]
-    int main(int argc, char *argv[]) {
+    int main(int argc, char* argv[]) {
       DUMP_ARGV();
       UC_InitSymbols();
       // PIN_SetSyntaxIntel();
       if(!UC_Init(argc, argv))
-          return Usage();
+          return Usage(argv);
+
+      uc_err err;
+      struct user_data_for_triton user_data_for_triton;
 
       /* Init the Triton module */
       triton::bindings::python::inittriton();
@@ -1011,8 +1053,13 @@ namespace tracer {
       // IMG_AddInstrumentFunction(IMG_Instrumentation, nullptr);
 
       /* Instruction callback */
-      // Not Implemented
-      // TRACE_AddInstrumentFunction(TRACE_Instrumentation, nullptr);
+      uc_hook uh_code;
+      // err = UC_AddCodeHook(&uh_code, (void *)print_code, (void *)&user_data_for_triton, 1, 0);
+      err = UC_AddCodeHook(&uh_code, (void *)callbackBefore, (void *)&user_data_for_triton, 1, 0);
+      if (err) {
+        fprintf(stderr, "[tracer:Error] Failed on UC_AddCodeHook\n");
+        return -1;
+      }
 
       /* End instrumentation callback */
       // Not Implemented
@@ -1039,134 +1086,9 @@ namespace tracer {
       // UC_InterceptSignal(SIGALRM, callbackSignals, nullptr);
       // UC_InterceptSignal(SIGTERM, callbackSignals, nullptr);
 
-      // TODO
-      // /* Exec the Unicorn's python bindings */
-      // tracer::unicorn::initBindings();
-      // tracer::unicorn::execScript(ucPythonScriptFileName); 
-
-      // for prototype only
-      if (argc == 1) {
-
-        // separate assembly instructions by ; or \n
-        #define CODE "add rdi, rsi; dec rdi; "
-        // #define CODE "xor rax, 0x11223344; nop; "
-
-        unsigned char *encode;
-        size_t size;
-        if (KS_Encode(CODE, &encode, &size)) {
-          fprintf(stderr, "failed on KS_Encode\n");
-          return -1;
-        }
-        for (size_t i = 0; i < size; i++) {
-            printf("%02x ", encode[i]);
-        }
-        puts("\n");
-
-        struct user_data_for_triton user_data_for_triton;
-        uc_err err;
-        uc_hook uh_code;
-        err = UC_AddCodeHook(&uh_code, (void *)print_code, (void *)&user_data_for_triton, 1, 0);
-        if (err) {
-          fprintf(stderr, "Failed on UC_AddCodeHook\n");
-          return -1;
-        }
-        #define ADDR 0x8000 
-        UC_SetEmuStartAddr(ADDR);
-        fprintf(stdout, "size = %d\n", size);
-        err = UC_LoadBinary(encode, ADDR, size);
-        if (err) {
-          fprintf(stderr, "Failed on UC_LoadBinary\n");
-          return -1;
-        }
-        UC_StartProgram();
-
-        struct op *trace;
-        trace = user_data_for_triton.trace;
-
-        /* Set the arch */
-        api.setArchitecture(ARCH_X86_64);
-
-        /* Define RAX as symbolic variable */
-        api.convertRegisterToSymbolicVariable(TRITON_X86_REG_RDI);
-        api.convertRegisterToSymbolicVariable(TRITON_X86_REG_RSI);
-
-        for (unsigned int i = 0; trace[i].addr; i++) {
-          /* Build an instruction */
-          Instruction inst;
-
-          /* Setup opcodes */
-          inst.setOpcodes(trace[i].inst, trace[i].size);
-
-          /* optional - Setup address */
-          inst.setAddress(trace[i].addr);
-
-          /* Process everything */
-          api.processing(inst);
-
-          std::cout << inst << std::endl;
-          for (unsigned int op_index = 0; op_index != inst.operands.size(); op_index++) {
-            std::cout << "\tOperand " << op_index << ": " << inst.operands[op_index] << std::endl;
-            if (inst.operands[op_index].getType() == OP_MEM) {
-              std::cout << "\t   base  : " << inst.operands[op_index].getMemory().getBaseRegister() << std::endl;
-              std::cout << "\t   index : " << inst.operands[op_index].getMemory().getIndexRegister() << std::endl;
-              std::cout << "\t   disp  : " << inst.operands[op_index].getMemory().getDisplacement() << std::endl;
-              std::cout << "\t   scale : " << inst.operands[op_index].getMemory().getScale() << std::endl;
-            }
-          }
-
-          std::cout << "\t-------" << std::endl;
-
-          for (unsigned int exp_index = 0; exp_index != inst.symbolicExpressions.size(); exp_index++) {
-            auto expr = inst.symbolicExpressions[exp_index];
-            std::cout << "\tSymExpr " << exp_index << ": " << expr << std::endl;
-          }
-
-          std::cout << std::endl << std::endl;
-        }
-
-        /* Get the RAX symbolic ID */
-        auto rdiSymId = api.getSymbolicRegisterId(TRITON_X86_REG_RDI);
-        auto rsiSymId = api.getSymbolicRegisterId(TRITON_X86_REG_RSI);
-
-        /* Get the RAX full AST */
-        auto rdiFullAst = api.getFullAstFromId(rdiSymId);
-        auto rsiFullAst = api.getFullAstFromId(rsiSymId);
-
-        /* Display RAX's AST*/
-        std::cout << "RDI expr: " << rdiFullAst << std::endl;
-        std::cout << "RSI expr: " << rsiFullAst << std::endl;
-
-        /* Modify RAX's AST to build the constraint */
-        auto constraint = ast::assert_(
-            ast::land(
-              ast::equal(rdiFullAst, ast::bv(3, rdiFullAst->getBitvectorSize())),
-              ast::lor(
-                ast::equal(rsiFullAst, ast::bv(2, rsiFullAst->getBitvectorSize())),
-                ast::equal(rsiFullAst, ast::bv(0, rsiFullAst->getBitvectorSize()))
-              )
-            )
-          );
-
-
-        /* Display the AST */
-        std::cout << "constraint: " << constraint << std::endl;
-
-        /* Ask a model */
-        auto models = api.getModels(constraint, 3);
-
-        /* Display all symbolic variable value contained in the model */
-        auto i = 0;
-        for (auto &x:models) {
-          std::cout << "Model #" << i << ": " << std::endl;
-          auto model = x;
-          for (auto it = model.begin(); it != model.end(); it++) {
-            std::cout << "  - Variable id  : " << it->first << std::endl;
-            std::cout << "  - Variable name: " << it->second.getName() << std::endl;
-            std::cout << "  - Value        : " << std::hex << it->second.getValue() << std::endl;
-          }
-          i++;
-        }
-      }
+      /* Exec the Unicorn's python bindings */
+      tracer::unicorn::initBindings();
+      tracer::unicorn::execScript(ucPythonScriptFileName); 
 
       return 0;
     }

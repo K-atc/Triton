@@ -7,6 +7,7 @@
 // for prototype only
 #define CODE_ADDRESS 0x8000
 #define PIN_ThreadId(x) (1)
+#define BIN_FILE_BASE_ADDR 0x10000
 
 #define CONTEXT uc_context
 #define REG uc_x86_reg
@@ -24,10 +25,19 @@ struct op {
   unsigned char   inst[16];
   unsigned int    size      = 0;
 };
+
 struct user_data_for_triton
 {
+  CONTEXT* ctx;
+  THREADID threadId = 0; // NOTE: NOT implemented
   struct op trace[16];
   int trace_count = 0;
+};
+
+enum uc_file_type {
+  UC_FILE_BIN = 0,
+  UC_FILE_ELF32,
+  UC_FILE_ELF64,
 };
 
 // extern SYSCALL_STANDARD INS_SyscallStd(INS ins);
@@ -43,6 +53,9 @@ struct tracer_env {
 
 // TODO: Mutex
 // TODO: IMG
+
+uc_file_type UC_DetectFileType(const char* file_name);
+size_t UC_GetFileSize(const char* file_name);
 
 void UC_InitSymbols(void);
 bool UC_Init(int argc, char *argv[]);
@@ -81,6 +94,7 @@ void UC_ExecuteAt(const CONTEXT *ctxt);
 uc_err UC_SaveContext(CONTEXT *ctxtFrom, CONTEXT *ctxtTo);
 
 uc_err UC_LoadBinary(unsigned char *bin, int begin, int size);
+uc_err UC_LoadBinaryFromBinFile(const char* file_name);
 void UC_SetEmuStartAddr(int start);
 
 // uc_err UC_AddCodeHook(uc_hook *hh, void (*callback)(uc_engine*, uint64_t, uint32_t, void*), void *user_data, uint64_t begin, uint64_t end);

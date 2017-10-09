@@ -45,7 +45,7 @@ namespace tracer {
       }
 
 
-      void before(triton::arch::Instruction* inst) {
+      void before(triton::arch::Instruction* inst) {        
         /* Check if there is a callback wich must be called at each instruction instrumented */
         if (tracer::unicorn::analysisTrigger.getState() && tracer::unicorn::options::callbackBefore){
 
