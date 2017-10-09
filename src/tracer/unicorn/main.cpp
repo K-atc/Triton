@@ -566,7 +566,7 @@ namespace tracer {
       // tritonInst->partialReset();
       tritonInst->setOpcodes(bytes, size);
       tritonInst->setAddress((triton::uint64) address);
-      // tritonInst->setThreadId(reinterpret_cast<triton::uint32>(threadId));
+      tritonInst->setThreadId(reinterpret_cast<triton::uint32>(threadId));
 
       /* Some configurations must be applied before processing */
       tracer::unicorn::callbacks::preProcessing(tritonInst, threadId);
@@ -608,6 +608,7 @@ namespace tracer {
 
       //// api.processing(*tritonInst); // DO NOT CALL processing() AT THE MOMENT. CREATES UNNECESSARY SYMBOLS!! (is this true?)
 
+      #if 0
       std::cout << "~~~~~~~" << std::endl;
       std::cout << tritonInst << std::endl;
       for (unsigned int op_index = 0; op_index != tritonInst->operands.size(); op_index++) {
@@ -624,7 +625,8 @@ namespace tracer {
         auto expr = tritonInst->symbolicExpressions[exp_index];
         std::cout << "\tSymExpr " << exp_index << ": " << expr << std::endl;
       }
-      std::cout << std::endl;    
+      std::cout << std::endl;  
+      #endif  
 
       /* Execute the Python callback */
       if (tracer::unicorn::context::mustBeExecuted == false)
@@ -844,12 +846,20 @@ namespace tracer {
 
 
     /* Image instrumentation */
-    // static void IMG_Instrumentation(IMG img, void *v) {
-    //   /* Lock / Unlock the Analysis from a Entry point */
-    //   if (tracer::unicorn::options::startAnalysisFromEntry) {
-    //     tracer::unicorn::options::startAnalysisFromEntry = false;
-    //     tracer::unicorn::options::startAnalysisFromAddress.insert(IMG_Entry(img));
-    //   }
+    static void IMG_Instrumentation(uc_engine* uc, IMG* img) {
+      log::debug("IMG_Instrumentation(uc=%p, img{name=\"%s\"})", uc, img->name.c_str());
+      /* Lock / Unlock the Analysis from a Entry point */
+      #if 0
+      if (tracer::unicorn::options::startAnalysisFromEntry) {
+      #else
+      if (true) {
+        log::warn("forcing startAnalysisFromEntry = true");
+      #endif
+        tracer::unicorn::options::startAnalysisFromEntry = false;
+        tracer::unicorn::options::startAnalysisFromAddress.insert(IMG_Entry(img));
+      } 
+      log::warn("last of IMG_Instrumentation is not implemented");
+      // TODO: last of this function
 
     //   /* Lock / Unlock the Analysis from a symbol */
     //   if (tracer::unicorn::options::startAnalysisFromSymbol != nullptr){
@@ -900,9 +910,8 @@ namespace tracer {
     //    * This callback must be called even outside the range analysis.
     //    */
     //   if (IMG_Valid(img))
-    //     tracer::unicorn::callbackImageLoad(img);
-    // }
-
+    //     tracer::unicorn::callbackImageLoad(img);      
+    }   
 
     // /* Check if the analysis must be unlocked */
     // static bool checkUnlockAnalysis(triton::__uint address) {
@@ -1050,8 +1059,12 @@ namespace tracer {
       triton::bindings::python::inittriton();
 
       /* Image callback */
-      // Not Implemented
-      // IMG_AddInstrumentFunction(IMG_Instrumentation, nullptr);
+      log::warn("calling UC_AddLoaderHook, but callback won'b called. Because Loader loads binary at UC_Init()");
+      uc_hook uh_loader;
+      UC_AddLoaderHook(&uh_loader, UC_HOOK_LOADER_COMPLETE, (void *)IMG_Instrumentation, (void *)&user_data_for_triton); 
+
+      log::warn("forcing calling IMG_Instrumentation() to enable startAnalysisFromEntry");
+      IMG_Instrumentation(nullptr, &*(memory_map_list.begin()));
 
       /* Instruction callback */
       uc_hook uh_code;

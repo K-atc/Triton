@@ -1,4 +1,3 @@
-#include "unicorn_wrapper.h"
 #include <string.h>
 #include <signal.h>
 #include <assert.h>
@@ -14,20 +13,17 @@
 #include <iterator>
 
 #include "logger.hpp"
-
 using namespace tracer::unicorn;
+
+#include "unicorn_wrapper.h"
 
 /* for unicorn engine */
 uc_engine* uc;
 uc_hook uh_syscall, uh_interrupt;
 
 /* for loader */
-struct memory_map {
-  std::string name;
-  ADDR start;
-  ADDR end;
-}; 
 std::list<memory_map> memory_map_list;
+std::list<struct hook> uc_hook_loader[UC_HOOK_LOADER_MAX];
 
 /* for capstone engine */
 csh csh_handle;
@@ -91,7 +87,7 @@ void register_memory_map(std::string name, unsigned int start, unsigned end)
     mm.start = start;
     mm.end = end;
     memory_map_list.push_back(mm);
-    log::info("%s mapped at 0x%lx - 0x%lx\n", name.c_str(), start, end);
+    log::info("%s mapped at 0x%lx - 0x%lx", name.c_str(), start, end);
 }
 
 ADDR UC_getImageBaseAddress(ADDR address)
@@ -150,7 +146,7 @@ bool UC_Init(int argc, char *argv[])
     
     uc_file_type file_type = UC_DetectFileType(ucBinFileName);
     if (file_type == UC_FILE_BIN) {
-        printf("[tracer:Debug] bin file mode\n");
+        log::debug("bin file mode:");
         UC_LoadBinaryFromBinFile(ucBinFileName);
     }
 
@@ -211,9 +207,7 @@ void UC_Detach()
 
 void UC_StartProgram()
 {
-    // TODO: start, until 
-    log::warn("param end of uc_emu_start is not correct");
-    int count = 3; // FIXME: 
+    int count = 0;
     log::debug("uc_emu_start(uc=%p, begin=0x%x, until=0x%x, timeout=%u, count=%u)", 
         uc, tracer_env.emuStartAddr, tracer_env.emuEndAddr, 0, count);
     uc_emu_start(uc, tracer_env.emuStartAddr, tracer_env.emuEndAddr, 0, count); // timeout = 0, count = 0
@@ -257,7 +251,7 @@ void UC_ExecuteAt(const CONTEXT *ctxt)
 
 uc_err UC_SaveContext(CONTEXT *ctxtFrom, CONTEXT *ctxtTo)
 {
-    uc_err err;
+    uc_err err = UC_ERR_OK;
     if (ctxtTo == nullptr) {
         err = uc_context_alloc(uc, &ctxtTo);
         if (err) {
@@ -265,13 +259,13 @@ uc_err UC_SaveContext(CONTEXT *ctxtFrom, CONTEXT *ctxtTo)
         }
     }
     memcpy(ctxtTo, ctxtFrom, sizeof(CONTEXT *));
-    return UC_ERR_OK;
+    return err;
 }
 
 // for prototype only
 uc_err UC_LoadBinary(unsigned char *bin, int begin, int size)
 {
-    uc_err err;
+    uc_err err = UC_ERR_OK;
 
     // allocate memory 
     unsigned int alignment = 2 * 1024 * 1024;
@@ -295,6 +289,14 @@ uc_err UC_LoadBinary(unsigned char *bin, int begin, int size)
       log::error("Failed to write emulation code to memory, quit!");
       return err; // never returns?
     }
+
+    // fire callbacks
+    IMG* img = &*(memory_map_list.end());
+    for (auto &hh : uc_hook_loader[UC_HOOK_LOADER_COMPLETE]) {
+        log::debug("%s\n", img->name);
+        ((uc_cb_loader_out_t) hh.callback)(uc, img);
+    }
+    return err;
 }
 
 // @return read byte size
@@ -351,6 +353,19 @@ uc_err UC_AddInsnHook(uc_hook *hh, void *callback, void *user_data, uint64_t beg
 {
     uc_err err;
     err = uc_hook_add(uc, hh, UC_HOOK_INSN, callback, user_data, begin, end, insn);
+    return err;
+}
+
+uc_err UC_AddLoaderHook(uc_hook *hh, uc_hook_loader_type hook_type, void *callback, void *user_data)
+{
+    uc_err err = UC_ERR_OK;
+    struct hook hook;
+    hook.type = hook_type;
+    hook.refs = 0;
+    hook.callback = callback;
+    hook.user_data = user_data;
+    uc_hook_loader[hook_type].push_back(hook);
+    *hh = (uc_hook) hook.type;
     return err;
 }
 

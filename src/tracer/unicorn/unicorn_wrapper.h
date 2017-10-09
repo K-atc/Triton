@@ -7,6 +7,9 @@
 #include <unicorn/unicorn.h>
 #include <keystone/keystone.h>
 
+#include "logger.hpp"
+using namespace tracer::unicorn;
+
 // for prototype only
 #define CODE_ADDRESS 0x80000
 #define PIN_ThreadId(x) (1)
@@ -33,16 +36,43 @@ struct op {
 struct user_data_for_triton
 {
   CONTEXT* ctx;
-  THREADID threadId = 0; // NOTE: NOT implemented
+  THREADID threadId = 0; // NOTE: NOT implemented. (multi threading is not supported as of now)
   struct op trace[16];
   int trace_count = 0;
 };
 
+/* for loader */
 enum uc_file_type {
   UC_FILE_BIN = 0,
   UC_FILE_ELF32,
   UC_FILE_ELF64,
 };
+
+struct memory_map {
+  std::string name;
+  ADDR start;
+  ADDR end;
+}; 
+typedef memory_map IMG;
+extern std::list<memory_map> memory_map_list; // need for functions references IMG
+
+enum uc_hook_loader_type {
+  UC_HOOK_LOADER_START_LODING = 0,
+  UC_HOOK_LOADER_COMPLETE,
+  UC_HOOK_LOADER_MAX // indicates number of types
+};
+#define IMG_Entry(x) (x->start)
+
+/* unicorn include/uc_priv.h */
+struct hook {
+    int type;            // UC_HOOK_*
+    int insn;            // instruction for HOOK_INSN
+    int refs;            // reference count to free hook stored in multiple lists
+    uint64_t begin, end; // only trigger if PC or memory access is in this address (depends on hook type)
+    void *callback;      // a uc_cb_* type
+    void *user_data;
+};
+typedef void (*uc_cb_loader_out_t)(uc_engine *, IMG *);
 
 ADDR UC_getImageBaseAddress(ADDR address);
 std::string UC_getImageName(ADDR address);
@@ -59,10 +89,7 @@ struct tracer_env {
     int emuEndAddr = CODE_ADDRESS;    
 };
 
-void register_memory_map(std::string name, unsigned int start, unsigned end);
-
 // TODO: Mutex
-// TODO: IMG
 
 uc_file_type UC_DetectFileType(const char* file_name);
 size_t UC_GetFileSize(const char* file_name);
@@ -111,12 +138,13 @@ void UC_SetEmuEndAddr(int address);
 // uc_err UC_AddCodeHook(uc_hook *hh, void (*callback)(uc_engine*, uint64_t, uint32_t, void*), void *user_data, uint64_t begin, uint64_t end);
 uc_err UC_AddCodeHook(uc_hook *hh, void *callback, void *user_data, uint64_t begin, uint64_t end);
 uc_err UC_AddInsnHook(uc_hook *hh, void *callback, void *user_data, uint64_t begin, uint64_t end, INSN insn);
+uc_err UC_AddLoaderHook(uc_hook *hh, uc_hook_loader_type hook_type, void *callback, void *user_data);
 
 static void _dump_argv(int argc, char *argv[])
 {
-    fprintf(stderr, "argc = %d\n", argc);
+    log::debug("argc = %d", argc);
     for (int i = 0; i < argc; i++) {
-        fprintf(stderr, "argv[%d] = %s\n", i, argv[i]);
+        log::debug("argv[%d] = %s", i, argv[i]);
     }
 }
 #define DUMP_ARGV() _dump_argv(argc, argv)

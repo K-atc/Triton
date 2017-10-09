@@ -47,9 +47,10 @@ namespace tracer {
 
 
       void before(triton::arch::Instruction* inst) {        
+        // log::info("callback.cpp: before called. analysisTrigger state is %d", tracer::unicorn::analysisTrigger.getState());
         /* Check if there is a callback wich must be called at each instruction instrumented */
         if (tracer::unicorn::analysisTrigger.getState() && tracer::unicorn::options::callbackBefore){
-          log::info("before called");
+          // log::info("callback.cpp: before called and in if-then clause");
           /* Create the Instruction Python class */
           PyObject* instClass = triton::bindings::python::PyInstruction(*inst);
 
@@ -198,16 +199,17 @@ namespace tracer {
       void preProcessing(triton::arch::Instruction* inst, triton::uint32 threadId) {
         triton::__uint addr   = inst->getAddress();
         triton::__uint offset = tracer::unicorn::getInsOffset(addr);
-
         if (tracer::unicorn::options::targetThreadId != -1)
           return;
 
         if (tracer::unicorn::options::startAnalysisFromAddress.find(addr) != tracer::unicorn::options::startAnalysisFromAddress.end()) {
+          // log::debug("tracer::unicorn::analysisTrigger.update(true)");
           tracer::unicorn::analysisTrigger.update(true);
           tracer::unicorn::options::targetThreadId = threadId;
         }
 
         if (tracer::unicorn::options::startAnalysisFromOffset.find(offset) != tracer::unicorn::options::startAnalysisFromOffset.end()) {
+          // log::debug("tracer::unicorn::analysisTrigger.update(true)");
           tracer::unicorn::analysisTrigger.update(true);
           tracer::unicorn::options::targetThreadId = threadId;
         }

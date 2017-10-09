@@ -6,11 +6,10 @@ from unicorn_tracer import *
 def mycb(inst):
     processing(inst)
 
-    print "mycb() called"
-    print type(inst)
+    print "~" * 8
     print inst
     for expr in inst.getSymbolicExpressions():
-        print expr
+        print "\t" + str(expr)
     print
     return
 
@@ -19,6 +18,9 @@ if __name__ == '__main__':
 
     # Set arch
     setArchitecture(ARCH.X86_64)
+
+    # Start JIT at the entry point, or insertCall callback won't be called
+    startAnalysisFromEntry()
 
     # Add callback
     insertCall(mycb, INSERT_POINT.BEFORE) # FIXME: NOT WORKING
