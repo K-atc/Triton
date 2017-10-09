@@ -213,8 +213,10 @@ void UC_StartProgram()
 {
     // TODO: start, until 
     log::warn("param end of uc_emu_start is not correct");
-    // uc_emu_start(uc, tracer_env.emuStartAddr, 0x1000, 0, 0); // timeout = 0, count = 0
-    uc_emu_start(uc, tracer_env.emuStartAddr, 0x10000, 0, 3); // timeout = 0, count = 0
+    int count = 3; // FIXME: 
+    log::debug("uc_emu_start(uc=%p, begin=0x%x, until=0x%x, timeout=%u, count=%u)", 
+        uc, tracer_env.emuStartAddr, tracer_env.emuEndAddr, 0, count);
+    uc_emu_start(uc, tracer_env.emuStartAddr, tracer_env.emuEndAddr, 0, count); // timeout = 0, count = 0
 }
 
 void UC_GetContextRegval(CONTEXT *ctxt, REG reg, UINT8 *val)
@@ -324,11 +326,17 @@ uc_err UC_LoadBinaryFromBinFile(const char* file_name)
     printBin(bin, file_size);
     UC_LoadBinary(bin, BIN_FILE_BASE_ADDR, file_size);
     UC_SetEmuStartAddr(BIN_FILE_BASE_ADDR);
+    UC_SetEmuEndAddr(BIN_FILE_BASE_ADDR + file_size);
 }
 
-void UC_SetEmuStartAddr(int start)
+void UC_SetEmuStartAddr(int address)
 {
-    tracer_env.emuStartAddr = start;
+    tracer_env.emuStartAddr = address;
+}
+
+void UC_SetEmuEndAddr(int address)
+{
+    tracer_env.emuEndAddr = address;
 }
 
 // uc_err UC_AddCodeHook(uc_hook *hh, void (*callback)(uc_engine*, uint64_t, uint32_t, void*), void *user_data, uint64_t begin, uint64_t end)

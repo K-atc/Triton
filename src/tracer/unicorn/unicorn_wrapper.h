@@ -8,9 +8,9 @@
 #include <keystone/keystone.h>
 
 // for prototype only
-#define CODE_ADDRESS 0x8000
+#define CODE_ADDRESS 0x80000
 #define PIN_ThreadId(x) (1)
-#define BIN_FILE_BASE_ADDR 0x10000
+#define BIN_FILE_BASE_ADDR 0x100000
 
 #define CONTEXT uc_context
 #define REG uc_x86_reg
@@ -55,7 +55,8 @@ extern const char* ucPythonScriptFileName;
 
 struct tracer_env {
     int entryPoint = CODE_ADDRESS;
-    int emuStartAddr = CODE_ADDRESS;
+    int emuStartAddr = CODE_ADDRESS;    
+    int emuEndAddr = CODE_ADDRESS;    
 };
 
 void register_memory_map(std::string name, unsigned int start, unsigned end);
@@ -105,6 +106,7 @@ uc_err UC_SaveContext(CONTEXT *ctxtFrom, CONTEXT *ctxtTo);
 uc_err UC_LoadBinary(unsigned char *bin, int begin, int size);
 uc_err UC_LoadBinaryFromBinFile(const char* file_name);
 void UC_SetEmuStartAddr(int start);
+void UC_SetEmuEndAddr(int address);
 
 // uc_err UC_AddCodeHook(uc_hook *hh, void (*callback)(uc_engine*, uint64_t, uint32_t, void*), void *user_data, uint64_t begin, uint64_t end);
 uc_err UC_AddCodeHook(uc_hook *hh, void *callback, void *user_data, uint64_t begin, uint64_t end);
