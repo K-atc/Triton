@@ -4,6 +4,8 @@
 #include <string>
 #include <list>
 
+#include "logger.hpp"
+
 #include <unicorn/unicorn.h>
 #include <keystone/keystone.h>
 

@@ -8,30 +8,6 @@
 #ifndef TRITON_PIN_CONTEXT_H
 #define TRITON_PIN_CONTEXT_H
 
-/* unicorn */
-// windows specific
-#ifdef _MSC_VER
-#include <io.h>
-#include <windows.h>
-#define PRIx64 "llX"
-#ifdef DYNLOAD
-#include "unicorn_dynload.h"
-#else // DYNLOAD
-#include <unicorn/unicorn.h>
-#ifdef _WIN64
-#pragma comment(lib, "unicorn_staload64.lib")
-#else // _WIN64
-#pragma comment(lib, "unicorn_staload.lib")
-#endif // _WIN64
-#endif // DYNLOAD
-
-// posix specific
-#else // _MSC_VER
-#include <unistd.h>
-#include <inttypes.h>
-#include <unicorn/unicorn.h>
-#endif // _MSC_VER
-
 /* libTriton */
 #include <triton/api.hpp>
 #include <triton/tritonTypes.hpp>

@@ -32,10 +32,7 @@ int fopen_s(FILE** fd, const char* fn, const char* flags) {
 #include <triton/pythonUtils.hpp>
 #include <triton/pythonXFunctions.hpp>
 
-/* TODO: pintool */
 #include "bindings.hpp"
-
-
 
 /*! \page py_INSERT_POINT_page INSERT_POINT
     \brief [**python api**] All information about the INSERT_POINT python namespace.

@@ -13,6 +13,8 @@
 #include <string>
 #include <iterator>
 
+using namespace tracer::unicorn;
+
 /* for unicorn engine */
 uc_engine* uc;
 uc_hook uh_syscall, uh_interrupt;
@@ -76,7 +78,7 @@ static void hook_intr(uc_engine *uc, uint32_t intno, void *user_data)
             printf("SIGTERM\n");
             break;
         default:
-            fprintf(stderr, "in hook_intr: unhandled interrupt occured\n");
+            log::warn("in hook_intr: unhandled interrupt occured");
     }
 }
 
@@ -87,14 +89,14 @@ void register_memory_map(std::string name, unsigned int start, unsigned end)
     mm.start = start;
     mm.end = end;
     memory_map_list.push_back(mm);
-    fprintf(stderr, "[loader:Info] %s mapped at 0x%lx - 0x%lx\n", name.c_str(), start, end);
+    log::info("%s mapped at 0x%lx - 0x%lx\n", name.c_str(), start, end);
 }
 
 ADDR UC_getImageBaseAddress(ADDR address)
 {
     for (auto &mm : memory_map_list) {
         if (mm.start <= address && address <= mm.end) {
-            // fprintf(stderr, "[loader:Info] base address of 0x%lx = 0x%lx\n", address, mm.start);
+            // log::info("base address of 0x%lx = 0x%lx", address, mm.start);
             return mm.start;
         }
     }
@@ -111,7 +113,7 @@ std::string UC_getImageName(ADDR address)
 
 uc_file_type UC_DetectFileType(const char* file_name)
 {
-    fprintf(stderr, "[tracer:Warn] UC_DetectFileType is not implemented. returning UC_FILE_BIN\n");
+    log::warn("UC_DetectFileType is not implemented. returning UC_FILE_BIN");
     return UC_FILE_BIN;
 }
 
@@ -128,7 +130,7 @@ size_t UC_GetFileSize(const char* file_name)
 void UC_InitSymbols(void)
 {
     // TODO: load symbols
-    fprintf(stderr, "[tracer:Warn] UC_InitSymbols is not implemented\n");
+    log::warn("UC_InitSymbols is not implemented");
 }
 
 bool UC_Init(int argc, char *argv[])
@@ -151,12 +153,12 @@ bool UC_Init(int argc, char *argv[])
     }
 
     if (err) {
-        fprintf(stderr, "[tracer:Error] Failed on uc_open with error returned: %u\n", err);
-        return false;
+        log::error("Failed on uc_open with error returned: %u", err);
+        // return false;
     }
     if (cs_open(CS_ARCH_X86, CS_MODE_64, &csh_handle) != CS_ERR_OK) {
-        fprintf(stderr, "[tracer:Error] Failed on cs_open\n");
-        return false;
+        log::error("Failed on cs_open");
+        // return false;
     }
     return true;
 }
@@ -202,13 +204,13 @@ bool UC_CheckWriteAccess(void *addr)
 
 void UC_Detach()
 {
-    fprintf(stderr, "[tracer:Warn] UC_Detach is not implemented");
+    log::warn("UC_Detach is not implemented");
 }
 
 void UC_StartProgram()
 {
     // TODO: start, until 
-    fprintf(stderr, "[tracer:Warn] param end of uc_emu_start is not correct\n");
+    log::warn("param end of uc_emu_start is not correct");
     // uc_emu_start(uc, tracer_env.emuStartAddr, 0x1000, 0, 0); // timeout = 0, count = 0
     uc_emu_start(uc, tracer_env.emuStartAddr, 0x1000, 0, 3); // timeout = 0, count = 0
 }
@@ -219,8 +221,7 @@ void UC_GetContextRegval(CONTEXT *ctxt, REG reg, UINT8 *val)
     struct uc_context *tmp_ctx;
     err = uc_context_alloc(uc, &ctxt);
     if (err) {
-        fprintf(stderr, "[tracer:Error] Failed on uc_context_alloc() with error returned: %u\n", err);
-        return;
+        log::error("[tracer:error] Failed on uc_context_alloc() with error returned: %u", err);
     }
     uc_context_save(uc, tmp_ctx);
     uc_context_restore(uc, ctxt);
@@ -234,7 +235,7 @@ void UC_SetContextRegval(CONTEXT *ctxt, REG reg, UINT8 *val)
     struct uc_context *tmp_ctx;
     err = uc_context_alloc(uc, &ctxt);
     if (err) {
-        fprintf(stderr, "[tracer:Error] Failed on uc_context_alloc() with error returned: %u\n", err);
+        log::error("Failed on uc_context_alloc() with error returned: %u", err);
         return;
     }
     uc_context_save(uc, tmp_ctx);
@@ -247,7 +248,7 @@ void UC_SetContextRegval(CONTEXT *ctxt, REG reg, UINT8 *val)
 void UC_ExecuteAt(const CONTEXT *ctxt)
 {
     // FIXME:
-    fprintf(stderr, "[tracer:Warn] UC_ExecuteAt is not implemented\n");
+    log::warn("UC_ExecuteAt is not implemented");
 }
 
 uc_err UC_SaveContext(CONTEXT *ctxtFrom, CONTEXT *ctxtTo)
@@ -273,22 +274,22 @@ uc_err UC_LoadBinary(unsigned char *bin, int begin, int size)
     int map_size = size;
     if (map_size % alignment) { // check 4 KB alignment
         map_size += alignment - (size % alignment);
-        fprintf(stderr, "[tracer:Info] param size is not 2 MB aligned. New size is 0x%x\n", map_size);
+        log::info("param size is not 2 MB aligned. New size is 0x%x", map_size);
     }
-    fprintf(stderr, "[tracer:Debug] uc_mem_map(uc=%p, begin=0x%x, size=0x%x, UC_PROT_ALL)\n", uc, begin, bin, map_size);
+    log::debug("uc_mem_map(uc=%p, begin=0x%x, size=0x%x, UC_PROT_ALL)", uc, begin, bin, map_size);
     err = uc_mem_map(uc, begin, map_size, UC_PROT_ALL);
     if (err) {
-      fprintf(stderr, "[tracer:Error] Failed to map memory, quit!\n");
-      return err;
+      log::error("Failed to map memory, quit!");
+      return err; // never returns?
     }
     register_memory_map("main_bin", begin, begin + map_size - 1);
 
     // load binary
-    fprintf(stderr, "[tracer:Debug] uc_mem_write(uc=%p, begin=0x%x, bin=%p, size=0x%x)\n", uc, begin, bin, size);
+    log::debug("uc_mem_write(uc=%p, begin=0x%x, bin=%p, size=0x%x)", uc, begin, bin, size);
     err = uc_mem_write(uc, begin, bin, size);
     if (err) {
-      fprintf(stderr, "[tracer:Error] Failed to write emulation code to memory, quit!\n");
-      return err;
+      log::error("Failed to write emulation code to memory, quit!");
+      return err; // never returns?
     }
 }
 
@@ -296,12 +297,12 @@ uc_err UC_LoadBinary(unsigned char *bin, int begin, int size)
 static size_t readFileAll(const char* file_name, unsigned char* read_to, size_t size)
 {
     if (read_to == nullptr) {
-        fprintf(stderr, "in readfileAll, param read_to is nullptr. exit\n");
+        log::error("in readfileAll, param read_to is nullptr. exit");
         return 0;
     }
     std::ifstream ifs(file_name);
     if (ifs.fail()) {
-        fprintf(stderr, "Fialed to read %s. exit\n", file_name);
+        log::error("Fialed to read %s. exit", file_name);
         return 0;
     }
     std::string read_to_str((std::istreambuf_iterator<char>(ifs)),
@@ -317,7 +318,7 @@ uc_err UC_LoadBinaryFromBinFile(const char* file_name)
     unsigned char* bin;
     bin = (unsigned char*) malloc(file_size);
     readFileAll(file_name, bin, file_size);
-    fprintf(stderr, "[tracer:Debug] loaded binary:\n");
+    log::debug("loaded binary:");
     printBin(bin, file_size);
     UC_LoadBinary(bin, BIN_FILE_BASE_ADDR, file_size);
     UC_SetEmuStartAddr(BIN_FILE_BASE_ADDR);

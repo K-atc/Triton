@@ -5,6 +5,7 @@
 **  This program is under the terms of the BSD License.
 */
 
+/* for unciron tracer */
 #include "unicorn_wrapper.h"
 
 /* libTriton */
@@ -12,7 +13,6 @@
 #include <triton/pythonObjects.hpp>
 #include <triton/tritonTypes.hpp>
 
-/* for unciron tracer */
 #include "bindings.hpp"
 #include "context.hpp"
 #include "snapshot.hpp"

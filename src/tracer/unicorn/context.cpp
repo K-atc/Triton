@@ -13,12 +13,10 @@
 #include <triton/coreUtils.hpp>
 #include <triton/x86Specifications.hpp>
 
-/* FIXME: pinto0l */
 #include "bindings.hpp"
 #include "context.hpp"
 
 
-// FIXME:
 namespace tracer {
   namespace unicorn {
     namespace context {

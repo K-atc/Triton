@@ -24,6 +24,7 @@
 #include "snapshot.hpp"
 #include "trigger.hpp"
 #include "utils.hpp"
+#include "logger.hpp"
 
 /*! \page Tracer_page Tracer
     \brief [**internal**] All information about how to plug a tracer.
@@ -552,11 +553,11 @@ namespace tracer {
       memset(bytes, 0, sizeof(bytes));
       err = uc_mem_read(uc, address, bytes, size);
       if (err) {
-        fprintf(stderr, "[tracer:Error] reading inst failed\n");
+        log::error("reading inst failed");
         exit(1);
       }
       if (bytes[0] == 0 && bytes[1] == 0) {
-        fprintf(stderr, "[tracer:Warn] invalid instruction given. Omitting (at address 0x%lx).\n", address);
+        log::warn("invalid instruction given. Omitting (at address 0x%lx).", address);
         return;
       }
       triton::arch::Instruction* tritonInst;
@@ -597,7 +598,7 @@ namespace tracer {
       }
 
       /* Synchronize glitches between Unicorn and libTriton */
-      fprintf(stderr, "[tracer:Warn] tracer::unicorn::context::synchronizeContext is missing\n");
+      log::warn("tracer::unicorn::context::synchronizeContext is missing");
       #if 0 // TODO
       tracer::unicorn::context::synchronizeContext();
       #endif
@@ -1057,8 +1058,7 @@ namespace tracer {
       // err = UC_AddCodeHook(&uh_code, (void *)print_code, (void *)&user_data_for_triton, 1, 0);
       err = UC_AddCodeHook(&uh_code, (void *)callbackBefore, (void *)&user_data_for_triton, 1, 0);
       if (err) {
-        fprintf(stderr, "[tracer:Error] Failed on UC_AddCodeHook\n");
-        return -1;
+        log::error("Failed on UC_AddCodeHook");
       }
 
       /* End instrumentation callback */
