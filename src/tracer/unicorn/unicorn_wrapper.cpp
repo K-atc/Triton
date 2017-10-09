@@ -13,6 +13,8 @@
 #include <string>
 #include <iterator>
 
+#include "logger.hpp"
+
 using namespace tracer::unicorn;
 
 /* for unicorn engine */
@@ -212,7 +214,7 @@ void UC_StartProgram()
     // TODO: start, until 
     log::warn("param end of uc_emu_start is not correct");
     // uc_emu_start(uc, tracer_env.emuStartAddr, 0x1000, 0, 0); // timeout = 0, count = 0
-    uc_emu_start(uc, tracer_env.emuStartAddr, 0x1000, 0, 3); // timeout = 0, count = 0
+    uc_emu_start(uc, tracer_env.emuStartAddr, 0x10000, 0, 3); // timeout = 0, count = 0
 }
 
 void UC_GetContextRegval(CONTEXT *ctxt, REG reg, UINT8 *val)
@@ -270,8 +272,8 @@ uc_err UC_LoadBinary(unsigned char *bin, int begin, int size)
     uc_err err;
 
     // allocate memory 
-    int alignment = 2 * 1024 * 1024;
-    int map_size = size;
+    unsigned int alignment = 2 * 1024 * 1024;
+    unsigned int map_size = size;
     if (map_size % alignment) { // check 4 KB alignment
         map_size += alignment - (size % alignment);
         log::info("param size is not 2 MB aligned. New size is 0x%x", map_size);

@@ -18,6 +18,7 @@
 
 #include "bindings.hpp"
 #include "utils.hpp"
+#include "logger.hpp"
 
 namespace tracer {
   namespace unicorn {
@@ -48,7 +49,7 @@ namespace tracer {
       void before(triton::arch::Instruction* inst) {        
         /* Check if there is a callback wich must be called at each instruction instrumented */
         if (tracer::unicorn::analysisTrigger.getState() && tracer::unicorn::options::callbackBefore){
-
+          log::info("before called");
           /* Create the Instruction Python class */
           PyObject* instClass = triton::bindings::python::PyInstruction(*inst);
 
