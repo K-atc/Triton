@@ -17,6 +17,14 @@
 uc_engine* uc;
 uc_hook uh_syscall, uh_interrupt;
 
+/* for loader */
+struct memory_map {
+  std::string name;
+  ADDR start;
+  ADDR end;
+}; 
+std::list<memory_map> memory_map_list;
+
 /* for capstone engine */
 csh csh_handle;
 
@@ -69,6 +77,35 @@ static void hook_intr(uc_engine *uc, uint32_t intno, void *user_data)
             break;
         default:
             fprintf(stderr, "in hook_intr: unhandled interrupt occured\n");
+    }
+}
+
+void register_memory_map(std::string name, unsigned int start, unsigned end)
+{
+    struct memory_map mm;
+    mm.name = name;
+    mm.start = start;
+    mm.end = end;
+    memory_map_list.push_back(mm);
+    fprintf(stderr, "[loader:Info] %s mapped at 0x%lx - 0x%lx\n", name.c_str(), start, end);
+}
+
+ADDR UC_getImageBaseAddress(ADDR address)
+{
+    for (auto &mm : memory_map_list) {
+        if (mm.start <= address && address <= mm.end) {
+            // fprintf(stderr, "[loader:Info] base address of 0x%lx = 0x%lx\n", address, mm.start);
+            return mm.start;
+        }
+    }
+}
+
+std::string UC_getImageName(ADDR address)
+{
+    for (auto &mm : memory_map_list) {
+        if (mm.start <= address && address <= mm.end) {
+            return mm.name;
+        }
     }
 }
 
@@ -244,7 +281,7 @@ uc_err UC_LoadBinary(unsigned char *bin, int begin, int size)
       fprintf(stderr, "[tracer:Error] Failed to map memory, quit!\n");
       return err;
     }
-    // map_add("no_name", begin, begin + map_size - 1);
+    register_memory_map("main_bin", begin, begin + map_size - 1);
 
     // load binary
     fprintf(stderr, "[tracer:Debug] uc_mem_write(uc=%p, begin=0x%x, bin=%p, size=0x%x)\n", uc, begin, bin, size);

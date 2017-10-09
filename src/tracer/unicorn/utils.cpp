@@ -16,44 +16,14 @@ namespace tracer {
   namespace unicorn {
 
     triton::__uint getBaseAddress(triton::__uint address) {
-      // RTN rtn;
-      // SEC sec;
-      // IMG img;
-      // // PIN_LockClient();
-      // rtn = RTN_FindByAddress(address);
-      // // PIN_UnlockClient();
-      // if (RTN_Valid(rtn)) {
-      //   sec = RTN_Sec(rtn);
-      //   if (SEC_Valid(sec)) {
-      //     img = SEC_Img(sec);
-      //     if (IMG_Valid(img)) {
-      //       return IMG_LowAddress(img);
-      //     }
-      //   }
-      // }
-      fprintf(stderr, "[tracer:Warn] tracer::unicorn::getBaseAddress is not implemented\n");
-      return 0x10000;
+      // fprintf(stderr, "[tracer:Warn] tracer::unicorn::getBaseAddress is not implemented\n");
+      return UC_getImageBaseAddress(address);
     }
 
 
     std::string getImageName(triton::__uint address) {
-      // RTN rtn;
-      // SEC sec;
-      // IMG img;
-      // // PIN_LockClient();
-      // rtn = RTN_FindByAddress(address);
-      // // PIN_UnlockClient();
-      // if (RTN_Valid(rtn)) {
-      //   sec = RTN_Sec(rtn);
-      //   if (SEC_Valid(sec)) {
-      //     img = SEC_Img(sec);
-      //     if (IMG_Valid(img)) {
-      //       return IMG_Name(img);
-      //     }
-      //   }
-      // }
-      fprintf(stderr, "[tracer:Warn] tracer::unicorn::getImageName is not implemented\n");
-      return "";
+      // fprintf(stderr, "[tracer:Warn] tracer::unicorn::getImageName is not implemented\n");
+      return UC_getImageName(address);
     }
 
 

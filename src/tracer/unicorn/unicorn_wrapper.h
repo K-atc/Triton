@@ -1,6 +1,9 @@
 #ifndef _UNICORN_WRAPPER_H_
 #define _UNICORN_WRAPPER_H_
 
+#include <string>
+#include <list>
+
 #include <unicorn/unicorn.h>
 #include <keystone/keystone.h>
 
@@ -17,13 +20,14 @@ typedef uint32_t  UINT32;
 typedef int32_t  INT32;
 typedef void  VOID;
 typedef UINT32 THREADID;
+typedef uint64_t ADDR;
 
 typedef uc_x86_insn INSN;
 
 struct op {
-  unsigned int    addr      = 0;
+  ADDR    addr      = 0;
   unsigned char   inst[16];
-  unsigned int    size      = 0;
+  ADDR    size      = 0;
 };
 
 struct user_data_for_triton
@@ -40,6 +44,9 @@ enum uc_file_type {
   UC_FILE_ELF64,
 };
 
+ADDR UC_getImageBaseAddress(ADDR address);
+std::string UC_getImageName(ADDR address);
+
 // extern SYSCALL_STANDARD INS_SyscallStd(INS ins);
 // typedef VOID (*SYSCALL_ENTRY_CALLBACK)(THREADID threadIndex, CONTEXT *ctxt, SYSCALL_STANDARD std, VOID *v);
 // typedef VOID (*SYSCALL_EXIT_CALLBACK)(THREADID threadIndex, CONTEXT *ctxt, SYSCALL_STANDARD std, VOID *v);
@@ -50,6 +57,8 @@ struct tracer_env {
     int entryPoint = CODE_ADDRESS;
     int emuStartAddr = CODE_ADDRESS;
 };
+
+void register_memory_map(std::string name, unsigned int start, unsigned end);
 
 // TODO: Mutex
 // TODO: IMG
