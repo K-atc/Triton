@@ -115,6 +115,7 @@ void UC_Detach();
 // The PIN_StartProgram() function never returns. It also unwinds the tool's stack, so any local (stack based) variables are lost.
 void UC_StartProgram();
 
+CONTEXT* UC_GetCurrentContext();
 // VOID LEVEL_PINCLIENT::PIN_GetContextRegval(const CONTEXT *ctxt, REG reg, UINT8 *val)
 // Get the value of the requested register from the context. This function is applicable for all context registers (integer, fp etc).
 void UC_GetContextRegval(CONTEXT *ctxt, REG reg, UINT8 *val);
@@ -123,7 +124,7 @@ void UC_SetContextRegval(CONTEXT *ctxt, REG reg, UINT8 *val);
 // VOID LEVEL_PINCLIENT::PIN_ExecuteAt(const CONTEXT *ctxt)
 // A tool can call this API to abandon the current analysis function and resume execution of the calling thread at a new application register state. Note that this API does not return back to the caller's analysis function.
 // This API can be called from an analysis function or a replacement routine, but not from a callback.
-void UC_ExecuteAt(const CONTEXT *ctxt);
+void UC_ExecuteAt(CONTEXT *ctxt);
 
 // VOID LEVEL_PINCLIENT::PIN_SaveContext(const CONTEXT *ctxtFrom, CONTEXT *ctxtTo)   
 // Copy the CONTEXT structure.
@@ -142,12 +143,20 @@ uc_err UC_AddLoaderHook(uc_hook *hh, uc_hook_loader_type hook_type, void *callba
 
 static void _dump_argv(int argc, char *argv[])
 {
-    log::debug("argc = %d", argc);
-    for (int i = 0; i < argc; i++) {
-        log::debug("argv[%d] = %s", i, argv[i]);
-    }
+  log::debug("argc = %d", argc);
+  for (int i = 0; i < argc; i++) {
+      log::debug("argv[%d] = %s", i, argv[i]);
+  }
 }
 #define DUMP_ARGV() _dump_argv(argc, argv)
+
+static void _non_null_assert(void* v, const char* name)
+{
+  if (v == nullptr) {
+    log::error("variable \'%s\' is null (at line %d in %s)", name, __LINE__, __FILE__);
+  }
+}
+#define NON_NULL_ASSERT(x) _non_null_assert((void *)x, #x)
 
 // orig: sample/shellcode.c
 // callback for tracing instruction

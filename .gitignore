@@ -16,3 +16,12 @@ www/*
 doc/*
 __pycache__
 .cache
+CMakeLists.txt.orig
+CMakeLists.txt.rej
+*.bin
+*.disasm
+*.elf
+src/**/**/CMakeFiles/*
+CTestTestfile.cmake
+cmake_install.cmake
+

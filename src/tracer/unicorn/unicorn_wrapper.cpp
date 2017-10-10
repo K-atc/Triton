@@ -12,7 +12,9 @@
 #include <string>
 #include <iterator>
 
+#include "context.hpp"
 #include "logger.hpp"
+
 using namespace tracer::unicorn;
 
 #include "unicorn_wrapper.h"
@@ -210,43 +212,69 @@ void UC_StartProgram()
     int count = 0;
     log::debug("uc_emu_start(uc=%p, begin=0x%x, until=0x%x, timeout=%u, count=%u)", 
         uc, tracer_env.emuStartAddr, tracer_env.emuEndAddr, 0, count);
+    uc_context_restore(uc, tracer::unicorn::context::lastContext); // sync state from Triton to unicorn
     uc_emu_start(uc, tracer_env.emuStartAddr, tracer_env.emuEndAddr, 0, count); // timeout = 0, count = 0
+}
+
+CONTEXT* UC_GetCurrentContext()
+{
+    uc_err err;
+    struct uc_context *ctxt;
+    err = uc_context_alloc(uc, &ctxt);
+    if (err) {
+        log::error("Failed on uc_context_alloc() with error returned: %u", err);
+    }
+    NON_NULL_ASSERT(ctxt);
+    err = uc_context_save(uc, ctxt);
+    if (err) {
+        log::error("Failed on uc_context_save() with error returned: %u", err);
+    }
+    return ctxt;
 }
 
 void UC_GetContextRegval(CONTEXT *ctxt, REG reg, UINT8 *val)
 {
+    NON_NULL_ASSERT(ctxt);
+    NON_NULL_ASSERT(&reg);
     uc_err err;
-    struct uc_context *tmp_ctx;
-    err = uc_context_alloc(uc, &ctxt);
+    struct uc_context *tmp_ctxt;
+    err = uc_context_alloc(uc, &tmp_ctxt);
     if (err) {
-        log::error("[tracer:error] Failed on uc_context_alloc() with error returned: %u", err);
+        log::error("Failed on uc_context_alloc() with error returned: %u", err);
     }
-    uc_context_save(uc, tmp_ctx);
+    NON_NULL_ASSERT(tmp_ctxt);
+    uc_context_save(uc, tmp_ctxt);
     uc_context_restore(uc, ctxt);
     uc_reg_read(uc, reg, val);
-    uc_context_restore(uc, tmp_ctx);
+    uc_context_restore(uc, tmp_ctxt);
 }
 
 void UC_SetContextRegval(CONTEXT *ctxt, REG reg, UINT8 *val)
 {
+    NON_NULL_ASSERT(ctxt);
+    NON_NULL_ASSERT(&reg);
     uc_err err;
-    struct uc_context *tmp_ctx;
-    err = uc_context_alloc(uc, &ctxt);
+    struct uc_context *tmp_ctxt;
+    err = uc_context_alloc(uc, &tmp_ctxt);
     if (err) {
         log::error("Failed on uc_context_alloc() with error returned: %u", err);
         return;
     }
-    uc_context_save(uc, tmp_ctx);
+    NON_NULL_ASSERT(tmp_ctxt);
+    uc_context_save(uc, tmp_ctxt);
     uc_context_restore(uc, ctxt);
     uc_reg_write(uc, reg, val);
     uc_context_save(uc, ctxt);
-    uc_context_restore(uc, tmp_ctx);
+    uc_context_restore(uc, tmp_ctxt);
 }
 
-void UC_ExecuteAt(const CONTEXT *ctxt)
+void UC_ExecuteAt(CONTEXT *ctxt)
 {
-    // FIXME:
-    log::warn("UC_ExecuteAt is not implemented");
+    NON_NULL_ASSERT(ctxt);
+    uc_context_restore(uc, ctxt);
+    ADDR pc;
+    uc_reg_read(uc, UC_X86_REG_RIP, &pc);
+    uc_emu_start(uc, pc, 0, 0, 1); // 1 step execution
 }
 
 uc_err UC_SaveContext(CONTEXT *ctxtFrom, CONTEXT *ctxtTo)
@@ -372,35 +400,15 @@ uc_err UC_AddLoaderHook(uc_hook *hh, uc_hook_loader_type hook_type, void *callba
 void print_code(uc_engine *uc, uint64_t address, uint32_t size, void *user_data)
 {
     cs_insn *insn;
-    size_t count;
-    struct user_data_for_triton *user_data_for_triton;
-    user_data_for_triton = (struct user_data_for_triton *) user_data;
-
-    int r_eip;
-    unsigned char tmp[16];
-
-    printf("Tracing instruction at 0x%" PRIx64 " , instruction size = 0x%x\n", address, size);
-
-    uc_reg_read(uc, UC_X86_REG_EIP, &r_eip);
-    printf("*** EIP = %x ***: ", r_eip);
-
-    size = MIN(sizeof(tmp), size);
-    if (!uc_mem_read(uc, address, tmp, size)) {
-        uint32_t i;
-        for (i=0; i<size; i++) {
-            printf("%x ", tmp[i]);
-        }
-        printf("\n");
-
-        int index = user_data_for_triton->trace_count;
-        memcpy((void *)user_data_for_triton->trace[index].inst, (void *)tmp, size);
-        user_data_for_triton->trace[index].addr = r_eip;
-        user_data_for_triton->trace[index].size = size;
-        user_data_for_triton->trace_count++;
-
-        // // disassemble instruction
-        // count = cs_disasm(csh_handle, tmp, size, r_eip, 0, &insn);
-        // printf("0x%" PRIx64 ":\t%s\t\t%s\n", insn[0].address, insn[0].mnemonic, insn[0].op_str);
+    int r_rip;
+    int count;
+    unsigned char insn_bytes[16];
+    uc_reg_read(uc, UC_X86_REG_RIP, &r_rip);
+    size = MIN(sizeof(insn_bytes), size);
+    if (!uc_mem_read(uc, address, insn_bytes, size)) {
+        // disassemble instruction
+        count = cs_disasm(csh_handle, insn_bytes, size, r_rip, 0, &insn);
+        log::debug("[UC] 0x%"PRIx64":\t%s\t\t%s", insn[0].address, insn[0].mnemonic, insn[0].op_str);
     }
 }
 

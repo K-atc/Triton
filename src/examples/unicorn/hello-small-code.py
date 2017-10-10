@@ -4,8 +4,6 @@ from triton import *
 from unicorn_tracer import *
 
 def mycb(inst):
-    processing(inst)
-
     print "~" * 8
     print inst
     for expr in inst.getSymbolicExpressions():
@@ -15,6 +13,7 @@ def mycb(inst):
 
 if __name__ == '__main__':
     print "Hello!"
+    print "use bin file: src/samples/test/small-code.bin"
 
     # Set arch
     setArchitecture(ARCH.X86_64)
@@ -23,7 +22,7 @@ if __name__ == '__main__':
     startAnalysisFromEntry()
 
     # Add callback
-    insertCall(mycb, INSERT_POINT.BEFORE) # FIXME: NOT WORKING
+    insertCall(mycb, INSERT_POINT.BEFORE)
 
     init_rdi = convertRegisterToSymbolicVariable(REG.RDI, "init_rdi") # SymVar_0
     init_rsi = convertRegisterToSymbolicVariable(REG.RSI, "init_rsi") # SymVar_1
@@ -33,10 +32,13 @@ if __name__ == '__main__':
     runProgram()
     print ""
 
+    print "======== [constraints] ========"
     rdi_ast = getAstFromId(getSymbolicRegisterId(REG.RDI))
     rsi_ast = getAstFromId(getSymbolicRegisterId(REG.RSI))
     print "AST of rdi@last: " + str(rdi_ast)
     print "AST of rsi@last: " + str(rsi_ast)
+
+    print "======== [assertion] ========"
     # constraints = ast.assert_(ast.land(
     #     ast.variable(init_rsi) == 4,
     #     rdi_ast == 2
@@ -44,7 +46,8 @@ if __name__ == '__main__':
     constraints = ast.assert_(rdi_ast == 1) # => SymVar_0 = 0x3
     # constraints = ast.assert_(ast.variable(init_rdi) == 3) # => SymVar_0 = 0x3
     print constraints
-    print "==== [Solutions] ===="
+    
+    print "======== [solutions] ========"
     models = getModels(constraints, 2) # solver for max 2 solutions
     if not models:
         print "unsat"

@@ -10,6 +10,15 @@
 #include <stdio.h>
 #include <cstdlib>
 
+#define KNRM  "\x1B[0m"
+#define KRED  "\x1B[31m"
+#define KGRN  "\x1B[32m"
+#define KYEL  "\x1B[33m"
+#define KBLU  "\x1B[34m"
+#define KMAG  "\x1B[35m"
+#define KCYN  "\x1B[36m"
+#define KWHT  "\x1B[37m"
+
 namespace tracer {
   namespace unicorn {
     namespace log {
@@ -44,7 +53,9 @@ namespace tracer {
       template <typename ... Args>
       void error(const char* format, Args const & ... args)
       {
+        fprintf(stderr, KRED);
         Print(format, "Error", args ...);
+        fprintf(stderr, KNRM);
         std::exit(1);
       }
     }

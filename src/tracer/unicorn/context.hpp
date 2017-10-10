@@ -12,7 +12,7 @@
 #include <triton/api.hpp>
 #include <triton/tritonTypes.hpp>
 
-
+#include "unicorn_wrapper.h"
 
 //! The Tracer namespace
 namespace tracer {

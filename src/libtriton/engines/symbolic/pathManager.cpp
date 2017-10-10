@@ -76,17 +76,23 @@ namespace triton {
         triton::uint64 dstAddr        = 0;
         triton::uint32 size           = 0;
 
+        // std::cout << "[engine:info] addPathConstraint(inst=" << inst << ", expr=" << expr << std::endl;
         pc = expr->getAst();
         if (pc == nullptr)
           throw triton::exceptions::PathManager("PathManager::addPathConstraint(): The PC node cannot be null.");
 
         /* If PC_TRACKING_SYMBOLIC is enabled, Triton will track path constraints only if they are symbolized. */
-        if (this->modes->isModeEnabled(triton::modes::PC_TRACKING_SYMBOLIC) && !pc->isSymbolized())
+        // std::cout << "pc->isSymbolized() = " << pc->isSymbolized() << std::endl;
+        if (this->modes->isModeEnabled(triton::modes::PC_TRACKING_SYMBOLIC) && !pc->isSymbolized()) {
+          // std::cerr << "If PC_TRACKING_SYMBOLIC is enabled, Triton will track path constraints only if they are symbolized." << std::endl;
           return;
+        }
 
         /* If ONLY_ON_TAINTED is enabled and the expression untainted, Triton will skip the storing process. */
-        if (this->modes->isModeEnabled(triton::modes::ONLY_ON_TAINTED) && !expr->isTainted)
+        if (this->modes->isModeEnabled(triton::modes::ONLY_ON_TAINTED) && !expr->isTainted){
+          // std::cerr << "If ONLY_ON_TAINTED is enabled and the expression untainted, Triton will skip the storing process." << std::endl;
           return;
+        }
 
         /* Basic block taken */
         srcAddr = inst.getAddress();
@@ -100,7 +106,9 @@ namespace triton {
           pc = pc->getChilds()[1];
 
         /* Multiple branches */
+        // std::cout << "getKind = " << pc->getKind() << std::endl;
         if (pc->getKind() == triton::ast::ITE_NODE) {
+          // std::cout << "Multiple branchs" << std::endl;
           triton::uint64 bb1 = pc->getChilds()[1]->evaluate().convert_to<triton::uint64>();
           triton::uint64 bb2 = pc->getChilds()[2]->evaluate().convert_to<triton::uint64>();
 
@@ -118,6 +126,7 @@ namespace triton {
 
         /* Direct branch */
         else {
+          // std::cout << "direct branch" << std::endl;
           pco.addBranchConstraint(true, srcAddr, dstAddr, triton::ast::equal(pc, triton::ast::bv(dstAddr, size)));
           this->pathConstraints.push_back(pco);
         }

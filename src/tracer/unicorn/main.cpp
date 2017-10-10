@@ -572,9 +572,12 @@ namespace tracer {
       tracer::unicorn::callbacks::preProcessing(tritonInst, threadId);
 
       // TODO: 
-      // if (!tracer::unicorn::analysisTrigger.getState() || threadId != tracer::unicorn::options::targetThreadId)
-      // /* Analysis locked */
-      //   return;
+      // log::warn("omitting analysis lock check");
+      #if 0
+      if (!tracer::unicorn::analysisTrigger.getState() || threadId != tracer::unicorn::options::targetThreadId)
+      /* Analysis locked */
+        return;
+      #endif
 
       /* Mutex */
       // PIN_LockClient();
@@ -598,35 +601,11 @@ namespace tracer {
       }
 
       /* Synchronize glitches between Unicorn and libTriton */
-      log::warn("tracer::unicorn::context::synchronizeContext is missing");
-      #if 0 // TODO
       tracer::unicorn::context::synchronizeContext();
-      #endif
 
       /* Process the IR and taint */
       triton::api.buildSemantics(*tritonInst);
-
       //// api.processing(*tritonInst); // DO NOT CALL processing() AT THE MOMENT. CREATES UNNECESSARY SYMBOLS!! (is this true?)
-
-      #if 0
-      std::cout << "~~~~~~~" << std::endl;
-      std::cout << tritonInst << std::endl;
-      for (unsigned int op_index = 0; op_index != tritonInst->operands.size(); op_index++) {
-        std::cout << "\tOperand " << op_index << ": " << tritonInst->operands[op_index] << std::endl;
-        if (tritonInst->operands[op_index].getType() == OP_MEM) {
-          std::cout << "\t   base  : " << tritonInst->operands[op_index].getMemory().getBaseRegister() << std::endl;
-          std::cout << "\t   index : " << tritonInst->operands[op_index].getMemory().getIndexRegister() << std::endl;
-          std::cout << "\t   disp  : " << tritonInst->operands[op_index].getMemory().getDisplacement() << std::endl;
-          std::cout << "\t   scale : " << tritonInst->operands[op_index].getMemory().getScale() << std::endl;
-        }
-      }
-      std::cout << "\t----------" << std::endl;
-      for (unsigned int exp_index = 0; exp_index != tritonInst->symbolicExpressions.size(); exp_index++) {
-        auto expr = tritonInst->symbolicExpressions[exp_index];
-        std::cout << "\tSymExpr " << exp_index << ": " << expr << std::endl;
-      }
-      std::cout << std::endl;  
-      #endif  
 
       /* Execute the Python callback */
       if (tracer::unicorn::context::mustBeExecuted == false)
@@ -847,7 +826,7 @@ namespace tracer {
 
     /* Image instrumentation */
     static void IMG_Instrumentation(uc_engine* uc, IMG* img) {
-      log::debug("IMG_Instrumentation(uc=%p, img{name=\"%s\"})", uc, img->name.c_str());
+      log::debug("IMG_Instrumentation(uc=%p, img={name=\"%s\"})", uc, img->name.c_str());
       /* Lock / Unlock the Analysis from a Entry point */
       #if 0
       if (tracer::unicorn::options::startAnalysisFromEntry) {
@@ -955,11 +934,11 @@ namespace tracer {
     }
 
 
-    /* Check if the instruction is whitelisted */
+    /* Check if the instruction is white listed */
     static bool instructionWhitelisted(triton::__uint address) {
       std::list<const char *>::iterator it;
 
-      /* If there is no whitelist -> jit everything */
+      /* If there is no white list -> jit everything */
       if (tracer::unicorn::options::imageWhitelist.empty())
         return true;
 
@@ -986,7 +965,7 @@ namespace tracer {
     //         continue;
 
     //       if (tracer::unicorn::instructionBlacklisted(INS_Address(ins)) == true || tracer::unicorn::instructionWhitelisted(INS_Address(ins)) == false)
-    //       /* Insruction blacklisted */
+    //       /* Instruction blacklisted */
     //         continue;
 
     //       /* Prepare the Triton's instruction */
@@ -1048,18 +1027,21 @@ namespace tracer {
     int main(int argc, char* argv[]) {
       DUMP_ARGV();
       UC_InitSymbols();
-      // PIN_SetSyntaxIntel();
       if(!UC_Init(argc, argv))
           return Usage(argv);
 
       uc_err err;
       struct user_data_for_triton user_data_for_triton;
 
+      /* Init the Triton context */
+      // TODO: is this correct?
+      tracer::unicorn::context::lastContext = UC_GetCurrentContext();
+
       /* Init the Triton module */
       triton::bindings::python::inittriton();
 
       /* Image callback */
-      log::warn("calling UC_AddLoaderHook, but callback won'b called. Because Loader loads binary at UC_Init()");
+      log::warn("calling UC_AddLoaderHook, but callback won't be called. Because Loader loads binary at UC_Init()");
       uc_hook uh_loader;
       UC_AddLoaderHook(&uh_loader, UC_HOOK_LOADER_COMPLETE, (void *)IMG_Instrumentation, (void *)&user_data_for_triton); 
 
@@ -1067,8 +1049,12 @@ namespace tracer {
       IMG_Instrumentation(nullptr, &*(memory_map_list.begin()));
 
       /* Instruction callback */
+      uc_hook uh_print_code;
+      err = UC_AddCodeHook(&uh_print_code, (void *)print_code, (void *)&user_data_for_triton, 1, 0);
+      if (err) {
+        log::error("Failed on UC_AddCodeHook");
+      }
       uc_hook uh_code;
-      // err = UC_AddCodeHook(&uh_code, (void *)print_code, (void *)&user_data_for_triton, 1, 0);
       err = UC_AddCodeHook(&uh_code, (void *)callbackBefore, (void *)&user_data_for_triton, 1, 0);
       if (err) {
         log::error("Failed on UC_AddCodeHook");
