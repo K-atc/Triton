@@ -48,6 +48,7 @@ def mycb(inst):
     if pc == fail_addr:
         pco = getPathConstraints()
         print pco
+        ans = []
         for pc in pco:
             if pc.isMultipleBranches():
                 # print "takenAdress = %#x (%#x)" % (pc.getTakenAddress(), rel_addr(pc.getTakenAddress()))
@@ -65,13 +66,12 @@ def mycb(inst):
                     #     ans += [v.getValue()]
                     # print "[user:info] " + ''.join([chr(x) for x in ans])
                     # Branch 2 (False Branch; Jump not-taken Branch)
-                    ans = []
                     models = getModel(ast.assert_(b2))
                     for k, v in models.items():
                         symvar = getSymbolicVariableFromId(v.getId())
                         print "%s (%s) = %#x" % (v.getName(), symvar.getComment(), v.getValue())
                         ans += [v.getValue()]
-                    print "[user:info] " + known_flag + ''.join([chr(x) for x in ans])                    
+                    print "[user:info] " + ''.join([chr(x) for x in ans])                    
         exit(1)
     return
 
