@@ -203,13 +203,13 @@ namespace tracer {
           return;
 
         if (tracer::unicorn::options::startAnalysisFromAddress.find(addr) != tracer::unicorn::options::startAnalysisFromAddress.end()) {
-          // log::debug("tracer::unicorn::analysisTrigger.update(true)");
+          log::debug("tracer::unicorn::analysisTrigger.update(true)");
           tracer::unicorn::analysisTrigger.update(true);
           tracer::unicorn::options::targetThreadId = threadId;
         }
 
         if (tracer::unicorn::options::startAnalysisFromOffset.find(offset) != tracer::unicorn::options::startAnalysisFromOffset.end()) {
-          // log::debug("tracer::unicorn::analysisTrigger.update(true)");
+          log::debug("tracer::unicorn::analysisTrigger.update(true)");
           tracer::unicorn::analysisTrigger.update(true);
           tracer::unicorn::options::targetThreadId = threadId;
         }

@@ -266,6 +266,8 @@ namespace tracer {
       if (!PyLong_Check(addr) && !PyInt_Check(addr))
         return PyErr_Format(PyExc_TypeError, "UC_SetEmuStartAddr(): Expected an address (integer) as argument.");
       UC_SetEmuStartAddr(triton::bindings::python::PyLong_AsUint(addr));
+      Py_INCREF(Py_None);
+      return Py_None;
     }
 
     static PyObject* unicorn_runProgram(PyObject* self, PyObject* noarg) {
@@ -285,6 +287,19 @@ namespace tracer {
       return Py_None;
     }
 
+    static PyObject* unicorn_stopProgram(PyObject* self, PyObject* noarg) {
+      /* Check if the architecture is definied */
+      if (triton::api.getArchitecture() == triton::arch::ARCH_INVALID)
+        return PyErr_Format(PyExc_TypeError, "tracer::unicorn::runProgram(): Architecture is not defined.");
+      try {
+        UC_StopProgram();        
+      }
+      catch (const std::exception& e) {
+        return PyErr_Format(PyExc_TypeError, "%s", e.what());
+      }
+      Py_INCREF(Py_None);
+      return Py_None;
+    }
 
     static PyObject* unicorn_setCurrentMemoryValue(PyObject* self, PyObject* args) {
       PyObject* mem   = nullptr;
@@ -473,6 +488,7 @@ namespace tracer {
       {"loadBinary",                unicorn_loadBinary,                 METH_VARARGS,   ""},
       {"setEmuStartAddr",           unicorn_setEmuStartAddr,            METH_O,         ""},
       {"runProgram",                unicorn_runProgram,                 METH_NOARGS,    ""},
+      {"stopProgram",               unicorn_stopProgram,                METH_NOARGS,    ""},
       {"setCurrentMemoryValue",     unicorn_setCurrentMemoryValue,      METH_VARARGS,   ""},
       {"setCurrentRegisterValue",   unicorn_setCurrentRegisterValue,    METH_VARARGS,   ""},
       {"setupImageBlacklist",       unicorn_setupImageBlacklist,        METH_O,         ""},

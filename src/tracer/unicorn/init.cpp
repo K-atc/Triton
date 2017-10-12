@@ -207,7 +207,7 @@ namespace tracer {
     }
 
 
-    bool execScript(const char *fileName) {
+    bool execScript(const char *fileName, int argc, char** argv) {
       #if defined(__unix__) || defined(__APPLE__)
       /* On some Linux distro, we must load libpython to successfully load all others modules. See issue #276. */
       void* handle = dlopen(PYTHON_LIBRARIES, RTLD_LAZY | RTLD_GLOBAL);
@@ -219,6 +219,10 @@ namespace tracer {
       auto err = fopen_s(&fd, fileName, "r");
       if (err != 0)
         throw std::runtime_error("tracer::unicorn::execScript(): Script file can't be found.");
+
+      Py_SetProgramName(argv[0]);
+      Py_Initialize();
+      PySys_SetArgv(argc, argv);
 
       PyRun_SimpleFile(fd, fileName);
 

@@ -48,7 +48,7 @@ namespace tracer {
     extern PyMethodDef unicornCallbacks[];
 
     //! The python script which will be executed by Pin.
-    bool execScript(const char* fileName);
+    bool execScript(const char* fileName, int argc, char** argv);
 
     //! The initialization of the Pin's Python env.
     void initBindings(void);

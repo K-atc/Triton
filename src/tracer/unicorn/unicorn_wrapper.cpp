@@ -21,7 +21,8 @@ using namespace tracer::unicorn;
 
 /* for unicorn engine */
 uc_engine* uc;
-uc_hook uh_syscall, uh_interrupt;
+uc_hook uh_trap;
+uc_hook uh_syscall, uh_interrupt, uh_syscall_entry, uh_syscall_exit;
 
 /* for loader */
 std::list<memory_map> memory_map_list;
@@ -34,6 +35,15 @@ csh csh_handle;
 struct tracer_env tracer_env;
 const char* ucBinFileName;
 const char* ucPythonScriptFileName;
+
+
+void _interrupt(uc_engine *uc, uint32_t intno, void *user_data)
+{
+    log::info("==> syscall intno=%d", intno);
+    if (intno == 6) {
+        uc_emu_stop(uc);
+    }
+}
 
 static void printBin(unsigned char* bin, size_t size)
 {
@@ -89,7 +99,7 @@ void register_memory_map(std::string name, unsigned int start, unsigned end)
     mm.start = start;
     mm.end = end;
     memory_map_list.push_back(mm);
-    log::info("%s mapped at 0x%lx - 0x%lx", name.c_str(), start, end);
+    log::info("'%s' mapped at 0x%lx - 0x%lx", name.c_str(), start, end);
 }
 
 ADDR UC_getImageBaseAddress(ADDR address)
@@ -168,18 +178,24 @@ void UC_AddFiniFunction(VOID (*fun)(INT32, VOID*), VOID *val)
     // TODO
 }
 
-// XXX: no good
-void UC_AddSyscallEntryFunction(void* func, void* var)
+uc_err UC_AddSyscallEntryFunction(void* func, void* var)
 {
+    NON_NULL_ASSERT(func);
     // hook interrupts for syscall
-    uc_hook_add(uc, &uh_syscall, UC_HOOK_INSN, func, NULL, 1, 0, UC_X86_INS_SYSCALL);
+    uc_err err;
+    // err = uc_hook_add(uc, &uh_syscall_entry, UC_HOOK_INTR, func, var, 1, 0);
+    err = uc_hook_add(uc, &uh_syscall_entry, UC_HOOK_INSN, func, var, 1, 0, UC_X86_INS_SYSCALL);
+    log::debug("UC_AddSyscallEntryFunction(func=%p, var=%p) => err=%d", func, var, err);
+    return err;
 }
 
-// XXX: no good
-void UC_AddSyscallExitFunction(void* func, void* var)
+uc_err UC_AddSyscallExitFunction(void* func, void* var)
 {
-    // hook interrupts for syscall
-    uc_hook_add(uc, &uh_syscall, UC_HOOK_INSN, func, NULL, 1, 0, UC_X86_INS_SYSCALL);
+    // XXX* not corrext implements
+    NON_NULL_ASSERT(func);
+    uc_err err;
+    err = uc_hook_add(uc, &uh_syscall_exit, UC_HOOK_INSN, func, var, 1, 0, UC_X86_INS_SYSCALL);
+    return err;
 }
 
 void UC_InterceptSignal(int intno, void *func, void* var)
@@ -216,6 +232,12 @@ void UC_StartProgram()
     uc_emu_start(uc, tracer_env.emuStartAddr, tracer_env.emuEndAddr, 0, count); // timeout = 0, count = 0
 }
 
+void UC_StopProgram()
+{
+    log::debug("UC_StopProgram() called");
+    uc_emu_stop(uc);
+}
+
 CONTEXT* UC_GetCurrentContext()
 {
     uc_err err;
@@ -232,6 +254,13 @@ CONTEXT* UC_GetCurrentContext()
     return ctxt;
 }
 
+uc_err UC_GetCurrentRegVal(REG reg, void *val)
+{
+    NON_NULL_ASSERT(val);
+    return uc_reg_read(uc, reg, val);
+}
+
+// XXX* UINT8? Really?!
 void UC_GetContextRegval(CONTEXT *ctxt, REG reg, UINT8 *val)
 {
     NON_NULL_ASSERT(ctxt);
@@ -268,6 +297,11 @@ void UC_SetContextRegval(CONTEXT *ctxt, REG reg, UINT8 *val)
     uc_context_restore(uc, tmp_ctxt);
 }
 
+uc_err UC_WriteCurrentMem(ADDR address, void* data, size_t size)
+{
+    return uc_mem_write(uc, address, data, size);
+}
+
 void UC_ExecuteAt(CONTEXT *ctxt)
 {
     NON_NULL_ASSERT(ctxt);
@@ -302,7 +336,7 @@ uc_err UC_LoadBinary(unsigned char *bin, int begin, int size)
         map_size += alignment - (size % alignment);
         log::info("param size is not 2 MB aligned. New size is 0x%x", map_size);
     }
-    log::debug("uc_mem_map(uc=%p, begin=0x%x, size=0x%x, UC_PROT_ALL)", uc, begin, bin, map_size);
+    log::debug("uc_mem_map(uc=%p, begin=0x%x, size=0x%x, UC_PROT_ALL)", uc, begin, map_size);
     err = uc_mem_map(uc, begin, map_size, UC_PROT_ALL);
     if (err) {
       log::error("Failed to map memory, quit!");
@@ -317,6 +351,28 @@ uc_err UC_LoadBinary(unsigned char *bin, int begin, int size)
       log::error("Failed to write emulation code to memory, quit!");
       return err; // never returns?
     }
+
+    // allocate stack
+    ADDR stack_size = 0x100000;
+    ADDR stack_addr = 0x800000 - stack_size;
+    log::debug("uc_mem_map(uc=%p, begin=0x%x, size=0x%x, UC_PROT_ALL)", uc, stack_addr, stack_size);
+    err = uc_mem_map(uc, stack_addr, stack_size, UC_PROT_ALL);
+    if (err) {
+      log::error("Failed to map memory, quit!");
+      return err; // never returns?
+    }
+    register_memory_map("main_stack", stack_addr, stack_addr + stack_size - 1);
+
+    // allocate workspace
+    ADDR workspace_size = 0x10000;
+    ADDR workspace_addr = LOADER_WORKSPACE_ADDR;
+    log::debug("uc_mem_map(uc=%p, begin=0x%x, size=0x%x, UC_PROT_ALL)", uc, workspace_addr, workspace_size);
+    err = uc_mem_map(uc, workspace_addr, workspace_size, UC_PROT_ALL);
+    if (err) {
+      log::error("Failed to map memory, quit!");
+      return err; // never returns?
+    }
+    register_memory_map("main_workspace", workspace_addr, workspace_addr + workspace_size - 1);    
 
     // fire callbacks
     IMG* img = &*(memory_map_list.end());
@@ -361,6 +417,7 @@ uc_err UC_LoadBinaryFromBinFile(const char* file_name)
 
 void UC_SetEmuStartAddr(int address)
 {
+    log::info("UC_SetEmuStartAddr(address=0x%x)", address);
     tracer_env.emuStartAddr = address;
 }
 
@@ -381,6 +438,13 @@ uc_err UC_AddInsnHook(uc_hook *hh, void *callback, void *user_data, uint64_t beg
 {
     uc_err err;
     err = uc_hook_add(uc, hh, UC_HOOK_INSN, callback, user_data, begin, end, insn);
+    return err;
+}
+
+uc_err UC_AddMemAccessUnmappedHook(uc_hook *hh, void *callback, void *user_data)
+{
+    uc_err err;
+    err = uc_hook_add(uc, hh, UC_HOOK_MEM_UNMAPPED, callback, user_data, 1, 0);
     return err;
 }
 

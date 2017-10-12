@@ -21,6 +21,8 @@ CMakeLists.txt.rej
 *.bin
 *.disasm
 *.elf
+*.syms
+*.s
 src/**/**/CMakeFiles/*
 CTestTestfile.cmake
 cmake_install.cmake

@@ -538,8 +538,6 @@ namespace tracer {
     /* Callback before instruction processing */
     // static void callbackBefore(triton::arch::Instruction* tritonInst, triton::uint8* addr, triton::uint32 size, CONTEXT* ctx, THREADID threadId) {
     static void callbackBefore(uc_engine *uc, uint64_t address, uint32_t size, void *user_data) {
-      // print_code(uc, address, size, user_data);
-
       CONTEXT* ctx;
       uc_context_alloc(uc, &ctx);
       uc_context_save(uc, ctx);
@@ -608,7 +606,7 @@ namespace tracer {
       //// api.processing(*tritonInst); // DO NOT CALL processing() AT THE MOMENT. CREATES UNNECESSARY SYMBOLS!! (is this true?)
 
       /* Execute the Python callback */
-      if (tracer::unicorn::context::mustBeExecuted == false)
+      // if (tracer::unicorn::context::mustBeExecuted == false)
         tracer::unicorn::callbacks::before(tritonInst);
 
       /* Check if we must restore the snapshot */
@@ -740,42 +738,59 @@ namespace tracer {
 
     // /* Callback at a syscall entry */
     // static void callbackSyscallEntry(unsigned int threadId, CONTEXT* ctx, SYSCALL_STANDARD std, void* v) {
-    //   if (!tracer::unicorn::analysisTrigger.getState() || threadId != tracer::unicorn::options::targetThreadId)
-    //   /* Analysis locked */
-    //     return;
+    // static void callbackSyscallEntry(uc_engine *uc, uint32_t intno, void *user_data) {
+    static void callbackSyscallEntry(uc_engine *uc, uint32_t port, int size, void *user_data) {
+      #if 0
+      if (!tracer::unicorn::analysisTrigger.getState() || threadId != tracer::unicorn::options::targetThreadId)
+      /* Analysis locked */
+        return;
+      #endif
+      /* Mutex */
+      // PIN_LockClient();
 
-    //   /* Mutex */
-    //   // PIN_LockClient();
+      THREADID threadId = ((struct user_data_for_triton *) user_data)->threadId;
+      UINT64 syscall_no = 0;
+      uc_err err;
+      err = UC_GetCurrentRegVal(UC_X86_REG_RAX, &syscall_no);
+      if (err) {
+        log::error("UC_GetCurrentRegVal(UC_X86_REG_RAX, &syscall_no) failed");
+      }
+      // log::info(">>> syscall(%d)", syscall_no);
 
-    //   /* Update CTX */
-    //   tracer::unicorn::context::lastContext = ctx;
+      /* Update CTX */
+      tracer::unicorn::context::lastContext = UC_GetCurrentContext();
 
-    //   /* Execute the Python callback */
-    //   tracer::unicorn::callbacks::syscallEntry(threadId, std);
+      /* Execute the Python callback */
+      tracer::unicorn::callbacks::syscallEntry(threadId, syscall_no);
 
-    //   /* Mutex */
-    //   // PIN_UnlockClient();
-    // }
+      /* Mutex */
+      // PIN_UnlockClient();
+    }
 
 
-    // /* Callback at the syscall exit */
+    /* Callback at the syscall exit */
     // static void callbackSyscallExit(unsigned int threadId, CONTEXT* ctx, SYSCALL_STANDARD std, void* v) {
-    //   if (!tracer::unicorn::analysisTrigger.getState() || threadId != tracer::unicorn::options::targetThreadId)
-    //   /* Analysis locked */
-    //     return;
+    static void callbackSyscallExit(uc_engine *uc, uint32_t intno, void *user_data) {
+      #if 0
+      if (!tracer::unicorn::analysisTrigger.getState() || threadId != tracer::unicorn::options::targetThreadId)
+      /* Analysis locked */
+        return;
+      #endif 
 
-    //   /* Mutex */
-    //   // PIN_LockClient();
+      THREADID threadId = ((struct user_data_for_triton *) user_data)->threadId;
 
-    //   /* Update CTX */
-    //   tracer::unicorn::context::lastContext = ctx;
+      /* Mutex */
+      // PIN_LockClient();
 
-    //   /* Execute the Python callback */
-    //   tracer::unicorn::callbacks::syscallExit(threadId, std);
+      /* Update CTX */
+      tracer::unicorn::context::lastContext = UC_GetCurrentContext();
 
-    //   /* Mutex */
-    //   // PIN_UnlockClient();
-    // }
+      /* Execute the Python callback */
+      tracer::unicorn::callbacks::syscallExit(threadId, intno);
+
+      /* Mutex */
+      // PIN_UnlockClient();
+    }
 
 
     // /*
@@ -1011,6 +1026,9 @@ namespace tracer {
     //   }
     // }
 
+    void callbackUnmapped(uc_engine *uc, uc_hook hh, uint64_t address, uint32_t size, void *user_data) {
+        log::error("FIXME: unmapped memory access (address = 0x%x, size = 0x%x)", address, size);
+    }
 
     /* Usage function */
     static triton::sint32 Usage(char* argv[]) {
@@ -1018,7 +1036,6 @@ namespace tracer {
       std::cerr << "usage: " << argv[0] << " AnalysisPythonScript BinaryFile" << std::endl;
       return -1;
     }
-
 
     /* The unicorn's entry point */
     // Syntax: ./triton <your_script.py> <target binary> [target binary args]
@@ -1052,25 +1069,34 @@ namespace tracer {
       uc_hook uh_print_code;
       err = UC_AddCodeHook(&uh_print_code, (void *)print_code, (void *)&user_data_for_triton, 1, 0);
       if (err) {
-        log::error("Failed on UC_AddCodeHook");
+        log::error("Failed on hooking print_code");
       }
       uc_hook uh_code;
       err = UC_AddCodeHook(&uh_code, (void *)callbackBefore, (void *)&user_data_for_triton, 1, 0);
       if (err) {
-        log::error("Failed on UC_AddCodeHook");
+        log::error("Failed on hooking callbackBefore");
       }
+
+      /* DEBUG: handle unmapped error */
+      uc_hook uh_unmapped_error;
+      err = UC_AddMemAccessUnmappedHook(&uh_unmapped_error, (void *)callbackUnmapped, nullptr);
 
       /* End instrumentation callback */
       // Not Implemented
       // UC_AddFiniFunction(callbackFini, nullptr);
 
       /* Syscall entry callback */
-      // TODO
-      // UC_AddSyscallEntryFunction(callbackSyscallEntry, nullptr);
+      err = UC_AddSyscallEntryFunction((void *)callbackSyscallEntry, (void *)&user_data_for_triton);
+      if (err) {
+        log::error("Failed on UC_AddSyscallEntryFunction");
+      }
 
-      /* Syscall exit callback */
-      // TODO
-      // UC_AddSyscallExitFunction(callbackSyscallExit, nullptr);
+
+      // /* Syscall exit callback */
+      // err = UC_AddSyscallExitFunction((void *)callbackSyscallExit, (void *)&user_data_for_triton);
+      // if (err) {
+      //   log::error("Failed on UC_AddSyscallExitFunction");
+      // }
 
       // /* Signals callback */
       // UC_InterceptSignal(SIGHUP,  callbackSignals, nullptr);
@@ -1085,9 +1111,18 @@ namespace tracer {
       // UC_InterceptSignal(SIGALRM, callbackSignals, nullptr);
       // UC_InterceptSignal(SIGTERM, callbackSignals, nullptr);
 
+      // Prototype Only (VERY DIRTY)
+      if (argv[3]) {
+        log::info("argv[3] '%s' was written to workspace memory", argv[3]);
+        err = UC_WriteCurrentMem(LOADER_WORKSPACE_ADDR, argv[3], 32);
+        if (err) {
+          log::error("mem write failed (err=%d)", err);
+        }
+      }
+
       /* Exec the Unicorn's python bindings */
       tracer::unicorn::initBindings();
-      tracer::unicorn::execScript(ucPythonScriptFileName); 
+      tracer::unicorn::execScript(ucPythonScriptFileName, argc, argv); 
 
       return 0;
     }

@@ -5008,12 +5008,12 @@ namespace triton {
 
         /* Set condition flag */
         if (!op1->evaluate().is_zero()){
-          std::cout << "!op1->evaluate().is_zero() == true: jump will take" << std::endl;
+          // std::cout << "!op1->evaluate().is_zero() == true: jump will take" << std::endl;
           inst.setConditionTaken(true);
         }
         else {
-          std::cout << "!op1->evaluate().is_zero() == false: jump will NOT take" << std::endl;
-          std::cout << op1 << std::endl;
+          // std::cout << "!op1->evaluate().is_zero() == false: jump will NOT take" << std::endl;
+          // std::cout << op1 << std::endl;
         }
 
         /* Spread taint */
