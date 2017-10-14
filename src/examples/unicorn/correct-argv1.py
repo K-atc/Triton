@@ -56,7 +56,7 @@ def mycb(inst):
                     b1 = pc.getBranchConstraints()[0]['constraint']
                     b2 = pc.getBranchConstraints()[1]['constraint']
                     # print "b1: " + str(b1)
-                    # print "b2: " + str(b2)
+                    print "b2: " + str(b2)
                     # # Branch 1 (True Branch; Jump taken Branch)
                     # ans = []
                     # models = getModel(ast.assert_(b1))
@@ -71,7 +71,7 @@ def mycb(inst):
                         symvar = getSymbolicVariableFromId(v.getId())
                         print "%s (%s) = %#x" % (v.getName(), symvar.getComment(), v.getValue())
                         ans += [v.getValue()]
-                    print "[user:info] " + ''.join([chr(x) for x in ans])                    
+                    print "[user:info] " + ''.join([chr(x) for x in ans])                      
         exit(1)
     return
 

@@ -408,8 +408,8 @@ uc_err UC_LoadBinaryFromBinFile(const char* file_name)
     unsigned char* bin;
     bin = (unsigned char*) malloc(file_size);
     readFileAll(file_name, bin, file_size);
-    log::debug("loaded binary:");
-    printBin(bin, file_size);
+    // log::debug("loaded binary:");
+    // printBin(bin, file_size);
     UC_LoadBinary(bin, BIN_FILE_BASE_ADDR, file_size);
     UC_SetEmuStartAddr(BIN_FILE_BASE_ADDR);
     UC_SetEmuEndAddr(BIN_FILE_BASE_ADDR + file_size);
@@ -472,7 +472,7 @@ void print_code(uc_engine *uc, uint64_t address, uint32_t size, void *user_data)
     if (!uc_mem_read(uc, address, insn_bytes, size)) {
         // disassemble instruction
         count = cs_disasm(csh_handle, insn_bytes, size, r_rip, 0, &insn);
-        log::debug("[UC] 0x%"PRIx64":\t%s\t\t%s", insn[0].address, insn[0].mnemonic, insn[0].op_str);
+        log::debug("[UC] 0x%llx:\t%s\t\t%s", insn[0].address, insn[0].mnemonic, insn[0].op_str);
     }
 }
 
