@@ -144,6 +144,7 @@ void UC_SetEmuEndAddr(int address);
 
 // uc_err UC_AddCodeHook(uc_hook *hh, void (*callback)(uc_engine*, uint64_t, uint32_t, void*), void *user_data, uint64_t begin, uint64_t end);
 uc_err UC_AddCodeHook(uc_hook *hh, void *callback, void *user_data, uint64_t begin, uint64_t end);
+uc_err UC_AddBlockHook(uc_hook *hh, void *callback, void *user_data, uint64_t begin, uint64_t end);
 uc_err UC_AddInsnHook(uc_hook *hh, void *callback, void *user_data, uint64_t begin, uint64_t end, INSN insn);
 uc_err UC_AddMemAccessUnmappedHook(uc_hook *hh, void *callback, void *user_data);
 uc_err UC_AddLoaderHook(uc_hook *hh, uc_hook_loader_type hook_type, void *callback, void *user_data);

@@ -1,5 +1,5 @@
 #!/bin/sh
-script_dir=$(cd $(dirname $BASH_SOURCE); pwd)
+script_dir=$(cd $(dirname $0); pwd) || exit
 cd $script_dir
 
 compile()

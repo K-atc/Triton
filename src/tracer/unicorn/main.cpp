@@ -150,7 +150,7 @@ start and stop analysis at specific points, select what images are jitted or not
 is describe at this following page \ref pintool_py_api. Below, some examples.
 
 <hr>
-\subsection Tracer_pintool_example_1 Example - Display IR
+\subsection Tracer_unicorn_example_1 Example - Display IR
 
 ~~~~~~~~~~~~~{.py}
 #!/usr/bin/env python2
@@ -185,7 +185,7 @@ if __name__ == '__main__':
 ~~~~~~~~~~~~~
 
 <hr>
-\subsection Tracer_pintool_example_2 Example - Runtime Memory Tainting
+\subsection Tracer_unicorn_example_2 Example - Runtime Memory Tainting
 
 ~~~~~~~~~~~~~{.py}
 from triton  import *
@@ -231,7 +231,7 @@ if __name__ == '__main__':
 ~~~~~~~~~~~~~
 
 <hr>
-\subsection Tracer_pintool_example_3 Example - Runtime Register Modification
+\subsection Tracer_unicorn_example_3 Example - Runtime Register Modification
 
 ~~~~~~~~~~~~~{.py}
 #!/usr/bin/env python2
@@ -276,7 +276,7 @@ if __name__ == '__main__':
 ~~~~~~~~~~~~~
 
 <hr>
-\subsection Tracer_pintool_example_4 Example - Blacklist images
+\subsection Tracer_unicorn_example_4 Example - Blacklist images
 
 ~~~~~~~~~~~~~{.py}
 from triton  import *
@@ -301,7 +301,7 @@ if __name__ == '__main__':
 ~~~~~~~~~~~~~
 
 <hr>
-\subsection Tracer_pintool_example_5 Example - Callback on image
+\subsection Tracer_unicorn_example_5 Example - Callback on image
 
 ~~~~~~~~~~~~~{.py}
 from triton  import *
@@ -347,7 +347,7 @@ if __name__ == '__main__':
 ~~~~~~~~~~~~~
 
 <hr>
-\subsection Tracer_pintool_example_6 Example - Callback on routine
+\subsection Tracer_unicorn_example_6 Example - Callback on routine
 
 ~~~~~~~~~~~~~{.py}
 from triton  import *
@@ -391,7 +391,7 @@ if __name__ == '__main__':
 ~~~~~~~~~~~~~
 
 <hr>
-\subsection Tracer_pintool_example_7 Example - Callback on signals
+\subsection Tracer_unicorn_example_7 Example - Callback on signals
 
 ~~~~~~~~~~~~~{.py}
 from triton  import *
@@ -474,7 +474,7 @@ if __name__ == '__main__':
 ~~~~~~~~~~~~~
 
 <hr>
-\subsection Tracer_pintool_example_8 Example - Callback on syscalls
+\subsection Tracer_unicorn_example_8 Example - Callback on syscalls
 
 ~~~~~~~~~~~~~{.py}
 from triton  import *

@@ -434,6 +434,13 @@ uc_err UC_AddCodeHook(uc_hook *hh, void *callback, void *user_data, uint64_t beg
     return err;
 }
 
+uc_err UC_AddBlockHook(uc_hook *hh, void *callback, void *user_data, uint64_t begin, uint64_t end)
+{
+    uc_err err;
+    err = uc_hook_add(uc, hh, UC_HOOK_BLOCK, callback, user_data, begin, end);
+    return err;
+}
+
 uc_err UC_AddInsnHook(uc_hook *hh, void *callback, void *user_data, uint64_t begin, uint64_t end, INSN insn)
 {
     uc_err err;

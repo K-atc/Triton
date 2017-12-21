@@ -112,6 +112,7 @@ To be able to compile Triton, you must install these libraries before:
  [libz3](https://github.com/Z3Prover/z3)                                       | >= 4.4.1
  [libcapstone](http://www.capstone-engine.org/)                                | >= 3.0
  [Pin](https://software.intel.com/en-us/articles/pintool-downloads) (optional) | 71313
+ [Unicorn Engine](https://github.com/unicorn-engine/unicorn)                   | Any
 
 <hr>
 \subsection unix_install_sec Linux and OSX Installation
@@ -175,6 +176,24 @@ $ make
 ~~~~~~~~~~~~~
 
 Note that only the version `71313` of Pin is supported.
+
+<hr>
+\subsection unicorn_install_sec Unicorn Engine for Linux users
+
+This project is also shipped with a Unicorn Engine \ref Tracer_page. Triton must be compiled with these following commands:
+
+~~~~~~~~~~~~~{.sh}
+$ git clone https://github.com/JonathanSalwan/Triton.git
+$ cd Triton
+$ ./src/samples/test/build.sh  # to build sample binary
+$ mkdir build
+$ cd build
+$ cmake -DUNICORN=on ..
+$ make -j4
+$ ./src/tracer/unicorn/unicorn-tracer ../src/examples/unicorn/correct-argv1.py ../src/samples/test/correct-argv1.bin 
+~~~~~~~~~~~~~
+
+<b>TODO</b>: `./build/triton` is not correctry generated.
 
 */
 
