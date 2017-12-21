@@ -108,8 +108,8 @@ if __name__ == '__main__':
     setCurrentRegisterValue(REG.RAX, argv1)
     for offset in range(4 * 4):
         convertMemoryToSymbolicVariable(MemoryAccess(argv1 + offset, CPUSIZE.BYTE))
-    for i in range(8):
-        setConcreteMemoryValue(MemoryAccess(argv1 + i, CPUSIZE.BYTE, ord("flag{it\'s"[i])))        
+    # for i in range(8):
+    #     setConcreteMemoryValue(MemoryAccess(argv1 + i, CPUSIZE.BYTE, ord("flag{it\'s"[i])))        
     known_flag = ""
     if len(argv) > 1:
         known_flag = argv[1]
