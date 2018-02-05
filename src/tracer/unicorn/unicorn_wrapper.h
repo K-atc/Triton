@@ -7,7 +7,7 @@
 #include <unicorn/unicorn.h>
 #include <keystone/keystone.h>
 
-#include "logger.hpp"
+#include <triton/logger.hpp>
 using namespace tracer::unicorn;
 
 // for prototype only

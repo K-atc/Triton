@@ -24,7 +24,7 @@
 #include "snapshot.hpp"
 #include "trigger.hpp"
 #include "utils.hpp"
-#include "logger.hpp"
+#include <triton/logger.hpp>
 
 /*! \page Tracer_page Tracer
     \brief [**internal**] All information about how to plug a tracer.

@@ -13,7 +13,7 @@
 #include <iterator>
 
 #include "context.hpp"
-#include "logger.hpp"
+#include <triton/logger.hpp>
 
 using namespace tracer::unicorn;
 

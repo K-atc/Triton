@@ -280,7 +280,6 @@ namespace triton {
     return this->arch.isRegisterValid(regId);
   }
 
-
   bool API::isRegisterValid(const triton::arch::Register& reg) const {
     return this->arch.isRegisterValid(reg);
   }

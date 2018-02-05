@@ -18,7 +18,7 @@
 
 #include "bindings.hpp"
 #include "utils.hpp"
-#include "logger.hpp"
+#include <triton/logger.hpp>
 
 namespace tracer {
   namespace unicorn {

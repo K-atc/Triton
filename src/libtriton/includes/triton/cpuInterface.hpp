@@ -75,7 +75,7 @@ namespace triton {
         virtual std::set<triton::arch::Register*> getParentRegisters(void) const = 0;
 
         //! Disassembles the instruction according to the architecture.
-        virtual void disassembly(triton::arch::Instruction& inst) const = 0;
+        virtual void disassembly(triton::arch::Instruction& inst) const = 0; 
 
         //! Returns the concrete value of a memory cell.
         virtual triton::uint8 getConcreteMemoryValue(triton::uint64 addr) const = 0;

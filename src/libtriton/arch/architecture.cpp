@@ -11,7 +11,7 @@
 #include <triton/exceptions.hpp>
 #include <triton/x8664Cpu.hpp>
 #include <triton/x86Cpu.hpp>
-
+#include <triton/vexCpu.hpp>
 
 
 namespace triton {
@@ -60,6 +60,14 @@ namespace triton {
             throw triton::exceptions::Architecture("Architecture::setArchitecture(): Not enough memory.");
           this->cpu->init();
           break;
+
+        case triton::arch::ARCH_Vex:
+          /* init the new instance */
+          this->cpu.reset(new(std::nothrow) triton::arch::vex::vexCpu(this->callbacks));
+          if (this->cpu == nullptr)
+            throw triton::exceptions::Architecture("Architecture::setArchitecture(): Not enough memory.");
+          this->cpu->init();
+          break;          
       }
     }
 

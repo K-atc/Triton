@@ -27,3 +27,4 @@ src/**/**/CMakeFiles/*
 CTestTestfile.cmake
 cmake_install.cmake
 
+**/Triton.code-workspace

@@ -59,6 +59,9 @@ set(LIBTRITON_SOURCE_FILES
   arch/x86/x86Cpu.cpp
   arch/x86/x86Semantics.cpp
   arch/x86/x86Specifications.cpp
+  arch/vex/vexCpu.cpp
+  arch/vex/vexSemantics.cpp
+  arch/vex/vexSpecifications.cpp  
   ast/ast.cpp
   ast/astDictionaries.cpp
   ast/astGarbageCollector.cpp

@@ -172,6 +172,14 @@ namespace triton {
       return reg;
     }
 
+#if 0
+    triton::arch::Register Instruction::getRegisterState(std::pair<triton::uint32, triton::uint32> regId) {
+      triton::arch::Register reg(regId);
+      if (this->pair_registerState.find(regId) != this->pair_registerState.end())
+        reg = this->pair_registerState[regId];
+      return reg;
+    }
+#endif
 
     void Instruction::setLoadAccess(const triton::arch::MemoryAccess& mem, triton::ast::AbstractNode* node) {
       this->loadAccess.insert(std::make_pair(mem, node));
