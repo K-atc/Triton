@@ -149,7 +149,7 @@ namespace triton {
 
 
       triton::arch::RegisterSpecification vexCpu::getRegisterSpecification(triton::uint32 regId) const {
-        return this->getVexRegisterSpecification(triton::arch::ARCH_Vex, regId);
+        return this->getVexRegisterSpecification(triton::arch::ARCH_VEX, regId);
       }
 
 
@@ -199,151 +199,209 @@ namespace triton {
         throw triton::exceptions::Disassembly("vexCpu::disassembly: Not Implemented.");
       }
 
-      triton::uint32 vexCpu::translateIexToRegId(triton::intlibs::vexLifter::vex_expr expr) const {
-        switch (expr.tag) { 
-          case triton::intlibs::vexLifter::Iex_RdTmp:
-            return translateTmpToRegID(vex_insn.guard.tmp);
+      triton::uint32 vexCpu::translateIexToRegId(triton::intlibs::vexlifter::vex_expr expr) {
+        switch (expr.tag) {
+          case triton::intlibs::vexlifter::Iex_RdTmp:
+            return translateTmpToRegID(expr.tmp);
             break;
-          case triton::intlibs::vexLifter::Iex_Get:
+          case triton::intlibs::vexlifter::Iex_Get:
             return translatePairIDToRegID(
-                std::make_pair(vex_insn.data.offset, translateVexTyToSize(vex_insn.data.ty))
+                std::make_pair(expr.offset, translateVexTyToSize(expr.ty))
               );
             break;
           // TODO: memory
           default:
-            triton::logger::warn("Unhandled guard.tag = %s", n, triton::intlibs::vexlifter::vex_tag_enum_to_str(expr_arg.tag));
-            break;                
+            triton::logger::warn("Unhandled %s", triton::intlibs::vexlifter::vex_tag_enum_to_str(expr.tag));
+            break;
         }
         return 0;
       }
 
+      triton::arch::OperandWrapper vexCpu::generateOperandWrapperFromExpr(
+        triton::intlibs::vexlifter::vex_expr expr, triton::arch::Instruction &inst
+        ) {
+        switch (expr.tag) {
+          case triton::intlibs::vexlifter::Iex_Get: {
+            return
+              triton::arch::OperandWrapper(
+                inst.getRegisterState(
+                  translatePairIDToRegID(
+                    std::make_pair(expr.offset, translateVexTyToSize(expr.ty))
+                  )
+                )
+              );
+          } // case Iex_Get
+          case triton::intlibs::vexlifter::Iex_Const: {
+            return
+              triton::arch::OperandWrapper(
+                triton::arch::Immediate(expr.con, expr.result_size)
+              )
+            ;
+          } // case iex_Const
+          case triton::intlibs::vexlifter::Iex_RdTmp: {
+            return
+              triton::arch::OperandWrapper(
+                inst.getRegisterState(
+                  translateTmpToRegID(expr.tmp)
+                )
+              )
+            ;
+          } // case Iex_RdTmp
+          case triton::intlibs::vexlifter::Iex_Load: {
+            triton::arch::MemoryAccess mem;
+
+            /* Set the size of the memory access */
+            mem.setPair(std::make_pair(((expr.result_size * BYTE_SIZE_BIT) - 1), 0));
+
+            /* LEA if exists */
+            triton::arch::Register base(translateTmpToRegID(expr.tmp));
+
+            /* Specify that LEA contains a PC relative */
+            if (base.getId() == TRITON_VEX_REG_PC.getId())
+              mem.setPcRelative(inst.getNextAddress());
+
+            mem.setBaseRegister(base);
+
+            // TODO: endness
+
+            return triton::arch::OperandWrapper(mem);
+          } // case Iex_Load
+          default: {
+            triton::logger::warn("Unhandled tag = %s", triton::intlibs::vexlifter::vex_tag_enum_to_str(expr.tag));
+          }
+        }
+        return triton::arch::OperandWrapper(TRITON_VEX_REG_INVALID);
+      }
+
       void vexCpu::disassembly2(std::vector<triton::arch::Instruction>& insts, triton::uint64 address) {
-            if (lifted_vex_insns.find(address) == lifted_vex_insns.end()) {
-              char msg[128];
-              snprintf(msg, sizeof(msg), "vexCpu::disassembly(): VexIR at address 0x%lx not found.", address);
-              throw triton::exceptions::Disassembly(msg);
-            }
+        if (lifted_vex_insns.find(address) == lifted_vex_insns.end()) {
+          char msg[128];
+          snprintf(msg, sizeof(msg), "vexCpu::disassembly(): VexIR at address 0x%lx not found.", address);
+          throw triton::exceptions::Disassembly(msg);
+        }
 
-            for (auto &vex_insn : lifted_vex_insns[address]) {
+        for (auto &vex_insn : lifted_vex_insns[address]) {
 
-              triton::arch::Instruction inst;
+          triton::arch::Instruction inst;
 
-              if (!vex_insn.disasm.empty()) {
-                inst.setDisassembly(vex_insn.disasm);
-              }
+          if (!vex_insn.disasm.empty()) {
+            inst.setDisassembly(vex_insn.disasm);
+          }
 
-              /* Refine the size */
-              if (vex_insn.tag != triton::intlibs::vexlifter::Ist_IMark) {
-                inst.setSize(vex_insn.len);
-              }
+          /* Refine the size according with native instruction bytes size */
+          inst.setSize(lifted_vex_insns[address][0].len);
 
-              /* Init the instruction's type */
-              inst.setType(vex_insn.tag);
+          /* Init the instruction's type */
+          inst.setType(
+            triton::intlibs::vexlifter::vex_itype(
+              vex_insn.tag,
+              vex_insn.data.tag,
+              triton::intlibs::vexlifter::vex_iop(vex_insn.data.op)
+            )
+          );
 
-              /* Init the instruction's prefix */
-              // inst.setPrefix(this->capstonePrefixToTritonPrefix(detail->vex.prefix[0]));
+          /* Set Instruction Address */
+          inst.setAddress(address);
 
-              inst.setAddress(address);
-
-              /* Init operands */
-              switch (vex_insn.data.tag) { // dst registers
-                case triton::intlibs::vexlifter::Ist_Put: {
-                  inst.operands.push_back(
-                    triton::arch::OperandWrapper(
-                      inst.getRegisterState(
-                        translatePairIDToRegID(
-                          std::make_pair(vex_insn.data.offset, translateVexTyToSize(vex_insn.data.ty))
-                        )
-                      )
+          /* Init operands */
+          // push dst registers (and etcetera)
+          switch (vex_insn.tag) {
+            case triton::intlibs::vexlifter::Ist_Put: {
+              inst.operands.push_back(
+                triton::arch::OperandWrapper(
+                  inst.getRegisterState(
+                    translatePairIDToRegID(
+                      std::make_pair(vex_insn.offset, vex_insn.data.result_size)
                     )
-                  );    
-                  break;
-                }
-                case triton::intlibs::vexlifter::Ist_Store: {
-                  // push dst 
-                  inst.operands.push_back(
-                    triton::arch::OperandWrapper(inst.getRegisterState(translateIexToRegId(insn.addr)))
-                  );
-                }
-#if 0
-#endif
-                case triton::intlibs::vexlifter::Ist_Exit: {
-                  // push dst resiter (jump target)
-                  inst.operands.push_back(
-                    triton::arch::OperandWrapper(
-                      inst.getRegisterState(
-                        translatePairIDToRegID(
-                          std::make_pair(vex_insn.offsIP, vex_insn.result_size)
-                        )
-                      )
+                  )
+                )
+              );
+              break;
+            } // case Ist_Put
+            case triton::intlibs::vexlifter::Ist_Store: {
+              triton::arch::MemoryAccess mem;
+
+              /* Set the size of the memory access */
+              mem.setPair(std::make_pair(((vex_insn.data.result_size * BYTE_SIZE_BIT) - 1), 0));
+
+              /* LEA if exists */
+              triton::arch::Register base(translateTmpToRegID(vex_insn.addr_expr.tmp));
+
+              /* Specify that LEA contains a PC relative */
+              if (base.getId() == TRITON_VEX_REG_PC.getId())
+                mem.setPcRelative(inst.getNextAddress());
+
+              mem.setBaseRegister(base);
+
+              // TODO: endness
+
+              inst.operands.push_back(triton::arch::OperandWrapper(mem));
+              break;
+            } // case Ist_Store
+            case triton::intlibs::vexlifter::Ist_WrTmp: {
+              inst.operands.push_back(
+                triton::arch::OperandWrapper(
+                  inst.getRegisterState(
+                    translateTmpToRegID(vex_insn.tmp)
+                  )
+                )
+              );
+              break;
+            } // case Ist_WrTmp
+            case triton::intlibs::vexlifter::Ist_Exit: {
+              // push guard
+              inst.operands.push_back(
+                triton::arch::OperandWrapper(inst.getRegisterState(translateIexToRegId(vex_insn.guard)))
+              );
+              // push dst register (jump target)
+              inst.operands.push_back(
+                triton::arch::OperandWrapper(
+                  inst.getRegisterState(
+                    translatePairIDToRegID(
+                      std::make_pair(vex_insn.offsIP, vex_insn.dst.size)
                     )
-                  ); 
-                  // push guard
-                  inst.operands.push_back(
-                    triton::arch::OperandWrapper(inst.getRegisterState(translateIexToRegId(insn.guard)))
-                  );
-                } // case Ist_Exit
-              }
-              switch (vex_insn.data.tag) { // src registers
-                case triton::intlibs::vexlifter::Iex_Get:
-                  inst.operands.push_back(
-                    triton::arch::OperandWrapper(
-                      inst.getRegisterState(
-                        translatePairIDToRegID(
-                          std::make_pair(vex_insn.data.offset, translateVexTyToSize(vex_insn.data.ty))
-                        )
-                      )
-                    )
-                  );
-                  break;
-                default:
-                  break; // Do Nothing
-              }
-              for (triton::uint32 n = 0; n < (triton::uint32) vex_insn.data.nargs; n++) { // expr operands
-                triton::intlibs::vexlifter::vex_expr expr_arg = vex_insn.data.args[n];
-                switch (expr_arg.tag) {
-                  case triton::intlibs::vexlifter::Iex_RdTmp: {
-                    inst.operands.push_back(
-                      triton::arch::OperandWrapper(
-                        inst.getRegisterState(translateTmpToRegID(expr_arg.tmp))
-                      )
-                    );
-                    break;
-                  }
-                  case triton::intlibs::vexlifter::Iex_Const: {
-                    inst.operands.push_back(triton::arch::OperandWrapper(triton::arch::Immediate(expr_arg.con, expr_arg.result_size)));
-                    break;
-                  }
-                  case triton::intlibs::vexlifter::Iex_Load: {
-                    triton::arch::MemoryAccess mem;
+                  )
+                )
+              );
+              // push src const
+              inst.operands.push_back(
+                triton::arch::OperandWrapper(
+                  triton::arch::Immediate(vex_insn.dst.value, vex_insn.dst.size)
+                )
+              );
+              break;
+            } // case Ist_Exit
+            default:
+              break;
+          }
 
-                    /* Set the size of the memory access */
-                    mem.setPair(std::make_pair(((expr_arg.result_size * BYTE_SIZE_BIT) - 1), 0));
+          // push src registers described in data
+          inst.operands.push_back(
+            generateOperandWrapperFromExpr(
+              static_cast<triton::intlibs::vexlifter::vex_expr> (vex_insn.data),
+              inst
+            )
+          );
 
-                    mem.setAddress(expr_arg.con); // Really?
+          // push src operands described in args
+          // data.tag is Iex_Unop, Iex_Binop, Iex_Triop
+          for (triton::uint32 n = 0; n < (triton::uint32) vex_insn.data.nargs; n++) {
+            inst.operands.push_back(generateOperandWrapperFromExpr(vex_insn.data.args[n], inst));
+          } // for ( args )
 
-                    inst.operands.push_back(triton::arch::OperandWrapper(mem));
-                    break;
-                  }
-                  default: {
-                    triton::logger::warn("Unhandled arg[%d].tag = %s", n, triton::intlibs::vexlifter::vex_tag_enum_to_str(expr_arg.tag));
-                    break;
-                  }
-                } // switch
-              } // for ( args )
-              insts.push_back(inst);
+          /* Set branch */
+          if (vex_insn.tag == triton::intlibs::vexlifter::Ist_Jump)
+            inst.setBranch(true);
+          if (vex_insn.tag == triton::intlibs::vexlifter::Ist_Jump)
+            if(vex_insn.jumpkind == triton::intlibs::vexlifter::Ijk_Boring ||
+              vex_insn.jumpkind == triton::intlibs::vexlifter::Ijk_Call ||
+              vex_insn.jumpkind == triton::intlibs::vexlifter::Ijk_Ret)
+            inst.setControlFlow(true);
 
-              /* Set branch */
-              if (vex_insn.tag == triton::intlibs::vexlifter::Ist_Jump)
-                inst.setBranch(true);
-              if (vex_insn.tag == triton::intlibs::vexlifter::Ist_Jump)
-                if(vex_insn.jumpkind == triton::intlibs::vexlifter::Ijk_Boring ||
-                  vex_insn.jumpkind == triton::intlibs::vexlifter::Ijk_Call ||
-                  vex_insn.jumpkind == triton::intlibs::vexlifter::Ijk_Ret)
-                inst.setControlFlow(true);
-            } // for ( insn )
-        
-        return;        
+          insts.push_back(inst);
+        } // for ( insn )
+
+        return;
       }
 
       void vexCpu::disassemble_block(triton::uint8 *opcodes, triton::uint32 opcodesSize, triton::uint32 address) {
@@ -352,7 +410,7 @@ namespace triton {
           throw triton::exceptions::Disassembly("vexCpu::disassembly(): Opcodes and opcodesSize must be definied.");
 
         /* Lift native inst to VexIR */
-        triton::intlibs::vexlifter::vex_insns_group res; 
+        triton::intlibs::vexlifter::vex_insns_group res;
         vex_lift(&res, opcodes, address, opcodesSize);
 
         // Update CPU-side VexIRs
@@ -506,12 +564,12 @@ namespace triton {
         return 0;
       }
 
-      triton::uint32 vexCpu::translatePairIDToRegID(std::pair<triton::uint32, triton::uint32> pairId) {
-        return this->reg_map_pairid_to_regid[pairId];
+      triton::uint32 vexCpu::translatePairIDToRegID(std::pair<triton::uint32, triton::uint32> pairId) const {
+        return pairId.first * 0x10000 + pairId.second;
       }
 
-      std::pair<triton::uint32, triton::uint32> vexCpu::translateRegIDToPairID(triton::uint32 regId) {
-        return this->reg_map_regid_to_pairid[regId];
+      std::pair<triton::uint32, triton::uint32> vexCpu::translateRegIDToPairID(triton::uint32 regId) const {
+        return std::make_pair(regId / 0x10000, regId % 0x10000);
       }
 
       triton::uint32 vexCpu::translateTmpToRegID(triton::uint32 tmp) {

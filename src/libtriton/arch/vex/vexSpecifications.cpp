@@ -37,14 +37,15 @@ namespace triton {
       }
 
 
-      triton::arch::RegisterSpecification vexSpecifications::getvexRegisterSpecification(triton::uint32 arch, triton::uint32 regId) const {
+      triton::arch::RegisterSpecification vexSpecifications::getVexRegisterSpecification(triton::uint32 arch, triton::uint32 regId) const {
         triton::arch::RegisterSpecification ret;
 
         if (true) return ret; // TODO
 
-        if (arch != triton::arch::ARCH_vex && arch != triton::arch::ARCH_vex_64)
+        if (arch != triton::arch::ARCH_VEX)
           return ret;
 
+#if 0
         switch (regId) {
 
           case triton::arch::vex::ID_REG_RAX:
@@ -56,6 +57,7 @@ namespace triton {
 
           // TODO
         }
+#endif
         return ret;
       }
 

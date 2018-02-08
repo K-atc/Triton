@@ -8,12 +8,21 @@
 #ifndef TRITON_VEXLIFTER_H
 #define TRITON_VEXLIFTER_H
 
-namespace triton { 
+#include <triton/tritonTypes.hpp>
+#include <string>
+#include <vector>
+#include <map>
+
+namespace triton {
     namespace intlibs {
         namespace vexlifter {
 
+#define VEX_IST_BASE 0x10000
+#define VEX_IEX_BASE 0x100
+#define VEX_IOP_BASE 0x1
+
 typedef enum {
-    Ist_Invalid,
+    Ist_Invalid = 0,
     Ist_Jump,
     Ist_AbiHint,
     Ist_CAS,
@@ -32,7 +41,7 @@ typedef enum {
 } vex_tag_ist;
 
 typedef enum {
-    Iex_Invalid,
+    Iex_Invalid = 0,
     Iex_Binder,
     Iex_Binop,
     Iex_CCall,
@@ -50,7 +59,7 @@ typedef enum {
 } vex_tag_iex;
 
 typedef enum {
-    Ity_Invalid,
+    Ity_Invalid = 0,
     Ity_F32,
     Ity_F64,
     Ity_I1,
@@ -63,7 +72,7 @@ typedef enum {
 } vex_ir_ity;
 
 typedef enum {
-    Ico_Invalid,
+    Ico_Invalid = 0,
     Ico_F32,
     Ico_F32i,
     Ico_F64,
@@ -75,11 +84,50 @@ typedef enum {
     Ico_U8,
     Ico_V128,
     Ico_V256,
-} vex_ir_ico;
-
+} vex_tag_ico;
 
 typedef enum {
-    Ijk_Invalid=0x1A00,
+    Iop_Invalid = 0,
+
+    Iop_Add,
+    Iop_Sub,
+    Iop_Mul,
+    Iop_MullS,
+    Iop_MullU,
+    Iop_DivS,
+    Iop_DivU,
+
+    Iop_Mod, // Custom operation that does not exist in libVEX
+
+    Iop_Or,
+    Iop_And,
+    Iop_Xor,
+
+    Iop_Shr,
+    Iop_Shl,
+
+    Iop_Not,
+
+    Iop_CmpEQ,
+    Iop_CmpNE,
+    Iop_CmpSLT,
+    Iop_CmpSLE,
+    Iop_CmpULT,
+    Iop_CmpULE,
+    Iop_CmpSGE,
+    Iop_CmpUGE,
+    Iop_CmpSGT,
+    Iop_CmpUGT,
+
+    Iop_Cast,   // ex. Iop_64to1
+    Iop_CastU,  // ex. Iop_32Uto64
+    Iop_CastS,
+    Iop_CastHI,
+    Iop_CastHL,
+} vex_abst_iop;
+
+typedef enum {
+    Ijk_Invalid,
     Ijk_Boring,         /* not interesting; just goto next */
     Ijk_Call,           /* guest is doing a call */
     Ijk_Ret,            /* guest is doing a return */
@@ -111,31 +159,39 @@ typedef enum {
                             invalid at the point this happens. */
 } vex_ir_ijk;
 
-            // TODO:
-            // typedef enum vex_tag_iop
-            typedef std::string vex_tag_iop;
+typedef enum {
+    Iend_Invalid,
+    Iend_LE,
+    Iend_BE
+} vex_ir_endness;
 
-typedef struct vex_expr {
+// TODO:
+// typedef enum vex_tag_iop
+typedef std::string vex_tag_iop;
+
+typedef struct {
+    vex_tag_ico tag = Ico_Invalid;
+    unsigned int value = 0;
+    unsigned int size = 0;
+} vex_const;
+
+typedef struct {
     vex_tag_iex tag = Iex_Invalid;
+    vex_ir_ity ty = Ity_Invalid;
     int con = 0;
     int tmp = 0;
     int offset = 0;
     int result_size = 0;
 } vex_expr;
 
-typedef struct vex_data {
-    vex_tag_iex tag = Iex_Invalid;
-    vex_ir_ity ty = Ity_Invalid;
+typedef struct : vex_expr {
     vex_tag_iop op = "Iop_Invalid";
-    int con = 0;
-    int tmp = 0;
-    int offset = 0;
     vex_expr args[8];
     int nargs = 0;
-    int result_size = 0;
+    vex_ir_endness endness = Iend_Invalid;
 } vex_data;
 
-typedef struct vex_insn {
+typedef struct {
     vex_tag_ist tag = Ist_Invalid;
     int offset = 0;
     vex_data data;
@@ -146,15 +202,29 @@ typedef struct vex_insn {
     vex_ir_ijk jumpkind;
     vex_expr guard;
     int offsIP;
-    int dst;
+    vex_const dst;
     std::string disasm;
+    vex_ir_endness endness = Iend_Invalid;
+    vex_expr addr_expr;
 } vex_insn;
 
-
-
-
-            typedef std::vector<struct vex_insn> vex_insns;
+            typedef std::vector<vex_insn> vex_insns;
             typedef std::map<unsigned int, vex_insns> vex_insns_group;
+
+
+            constexpr triton::uint32 vex_itype(vex_tag_ist const &ist) {
+                return ist * VEX_IST_BASE;
+            }
+
+            constexpr triton::uint32 vex_itype(vex_tag_ist const &ist, vex_tag_iex const &iex) {
+                return vex_itype(ist) + iex * VEX_IEX_BASE;
+            }
+
+            constexpr triton::uint32 vex_itype(vex_tag_ist const &ist, vex_tag_iex const &iex, vex_abst_iop const &iop) {
+                return vex_itype(ist, iex) + iop * VEX_IOP_BASE;
+            }
+
+            vex_abst_iop vex_iop(vex_tag_iop tag);
 
             void print_vex_insns(vex_insns insns);
             bool vex_lift(vex_insns_group *insns_group, unsigned char *insns_bytes, unsigned int start_addr, unsigned int count);
@@ -163,4 +233,5 @@ typedef struct vex_insn {
         }
     }
 }
+
 #endif

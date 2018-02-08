@@ -61,13 +61,13 @@ namespace triton {
           this->cpu->init();
           break;
 
-        case triton::arch::ARCH_Vex:
+        case triton::arch::ARCH_VEX:
           /* init the new instance */
           this->cpu.reset(new(std::nothrow) triton::arch::vex::vexCpu(this->callbacks));
           if (this->cpu == nullptr)
             throw triton::exceptions::Architecture("Architecture::setArchitecture(): Not enough memory.");
           this->cpu->init();
-          break;          
+          break;
       }
     }
 

@@ -41,7 +41,7 @@ namespace triton {
       //! Symbolic Registers
       extern triton::arch::Register vex_regs;
       extern triton::arch::Register vex_tmp;
-
+      extern triton::arch::Register vex_reg_pc;
 
       //! \class vexSpecifications
       /*! \brief The vexSpecifications class defines specifications about the vex and vex_64 CPU */
@@ -56,6 +56,7 @@ namespace triton {
           //! Returns all specifications about a register from its ID according to the arch (32 or 64-bits).
           triton::arch::RegisterSpecification getVexRegisterSpecification(triton::uint32 arch, triton::uint32 regId) const;
 
+#if 0
           //! Converts a capstone's register id to a triton's register id.
           triton::uint32 capstoneRegisterToTritonRegister(triton::uint32 id) const;
 
@@ -64,6 +65,7 @@ namespace triton {
 
           //! Converts a capstone's prefix id to a triton's prefix id.
           triton::uint32 capstonePrefixToTritonPrefix(triton::uint32 id) const;
+#endif
       };
 
 
@@ -77,24 +79,7 @@ namespace triton {
         ID_REG_LAST_ITEM //!< must be the last item
       };
 
-      /*! \brief The list of prefixes.
-       *
-       *  \description
-       *  Note that `REP` and `REPE` have the some opcode. The `REP`
-       *  prefix becomes a `REPE` if the instruction modifies `ZF`.
-       */
-      enum prefix_e {
-        ID_PREFIX_INVALID = 0,  //!< invalid
-        ID_PREFIX_LOCK,         //!< LOCK
-        ID_PREFIX_REP,          //!< REP
-        ID_PREFIX_REPE,         //!< REPE
-        ID_PREFIX_REPNE,        //!< REPNE
-
-        /* Must be the last item */
-        ID_PREFIX_LAST_ITEM     //!< must be the last item
-      };
-
-      //! The list of opcodes.
+      //! The list of opcodes. (NOT USED)
       enum instructions_e {
         ID_INST_INVALID = 0, //!< invalid
 
@@ -113,8 +98,11 @@ namespace triton {
 
 
 //! Temporary INVALID register.
-#define TRITON_Vex_REG_INVALID  triton::arch::vex::vex_reg_invalid
+#define TRITON_VEX_REG_INVALID  triton::arch::vex::vex_reg_invalid
 //! Temporary vex registers.
-#define TRITON_Vex_REGS         triton::arch::vex::vex_regs
+#define TRITON_VEX_REGS         triton::arch::vex::vex_regs
+//! vex program counter.
+#define TRITON_VEX_REG_PC       triton::arch::vex::vex_reg_pc
+
 
 #endif /* TRITON_VexSPECIFICATIONS_H */

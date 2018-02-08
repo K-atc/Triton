@@ -8,9 +8,10 @@
 #ifndef TRITON_VEXCPU_HPP
 #define TRITON_VEXCPU_HPP
 
+#include <string>
+#include <vector>
 #include <map>
 #include <set>
-#include <vector>
 
 #include <triton/callbacks.hpp>
 #include <triton/cpuInterface.hpp>
@@ -75,11 +76,13 @@ namespace triton {
           std::map<std::pair<triton::uint32, triton::uint32>, triton::uint32> reg_map_pairid_to_regid;
           std::map<triton::uint32, std::pair<triton::uint32, triton::uint32>> reg_map_regid_to_pairid;
 
+          triton::uint32 translateIexToRegId(triton::intlibs::vexlifter::vex_expr expr);
           triton::uint32 translateVexTyToSize(triton::intlibs::vexlifter::vex_ir_ity ty);
-          triton::uint32 translatePairIDToRegID(std::pair<triton::uint32, triton::uint32> pairId);
-          std::pair<triton::uint32, triton::uint32> translateRegIDToPairID(triton::uint32 regId);
+          triton::uint32 translatePairIDToRegID(std::pair<triton::uint32, triton::uint32> pairId) const ;
+          std::pair<triton::uint32, triton::uint32> translateRegIDToPairID(triton::uint32 regId) const ;
           triton::uint32 translateTmpToRegID(triton::uint32 tmp);
           triton::uint32 translateRegIDToTmp(triton::uint32 regId);
+          triton::arch::OperandWrapper generateOperandWrapperFromExpr(triton::intlibs::vexlifter::vex_expr expr, triton::arch::Instruction &inst);
 
         public:
           //! Constructor.

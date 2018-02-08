@@ -42,9 +42,14 @@ namespace triton {
       ARCH_INVALID = 0, /*!< invalid architecture. */
       ARCH_X86,         /*!< x86 architecture. */
       ARCH_X86_64,      /*!< x86_64 architecture. */
-      ARCH_Vex,         /*!< vex (VexIR-based) architecture. */
+      ARCH_VEX,         /*!< vex (VexIR-based) architecture. */
       ARCH_LAST_ITEM    /*!< must be the last item.  */
     };
+
+    typedef enum endness_e {
+        ENDNESS_LE,
+        ENDNESS_BE,
+    } endness;
 
     /*! \class Architecture
      *  \brief The abstract architecture class. */

@@ -27,13 +27,13 @@ namespace triton {
    */
 
     //! Inject the value into the buffer. Make sure that the `buffer` contains at least 2 allocated bytes.
-    void fromUintToBuffer(triton::uint16 value, triton::uint8* buffer);      
+    void fromUintToBuffer(triton::uint16 value, triton::uint8* buffer);
 
     //! Inject the value into the buffer. Make sure that the `buffer` contains at least 4 allocated bytes.
-    void fromUintToBuffer(triton::uint32 value, triton::uint8* buffer);      
+    void fromUintToBuffer(triton::uint32 value, triton::uint8* buffer);
 
     //! Inject the value into the buffer. Make sure that the `buffer` contains at least 8 allocated bytes.
-    void fromUintToBuffer(triton::uint64 value, triton::uint8* buffer);    
+    void fromUintToBuffer(triton::uint64 value, triton::uint8* buffer);
 
     //! Inject the value into the buffer. Make sure that the `buffer` contains at least 16 allocated bytes.
     void fromUintToBuffer(triton::uint128 value, triton::uint8* buffer);

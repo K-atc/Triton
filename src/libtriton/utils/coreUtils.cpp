@@ -19,21 +19,21 @@ namespace triton {
 
     void fromUintToBuffer(triton::uint16 value, triton::uint8* buffer) {
       for (triton::uint32 i = 0; i < WORD_SIZE; i++) {
-        buffer[i] = (value & 0xff).convert_to<triton::uint8>();
+        buffer[i] = static_cast<triton::uint8>(value & 0xff);
         value >>= BYTE_SIZE_BIT;
       }
     }
 
     void fromUintToBuffer(triton::uint32 value, triton::uint8* buffer) {
       for (triton::uint32 i = 0; i < DWORD_SIZE; i++) {
-        buffer[i] = (value & 0xff).convert_to<triton::uint8>();
+        buffer[i] = static_cast<triton::uint8>(value & 0xff);
         value >>= BYTE_SIZE_BIT;
       }
     }
 
     void fromUintToBuffer(triton::uint64 value, triton::uint8* buffer) {
       for (triton::uint32 i = 0; i < QWORD_SIZE; i++) {
-        buffer[i] = (value & 0xff).convert_to<triton::uint8>();
+        buffer[i] = static_cast<triton::uint8>(value & 0xff);
         value >>= BYTE_SIZE_BIT;
       }
     }
