@@ -41,10 +41,15 @@ namespace triton {
       triton::arch::RegisterSpecification vexSpecifications::getVexRegisterSpecification(triton::uint32 arch, triton::uint32 regId) const {
         triton::arch::RegisterSpecification ret;
 
-        if (true) return ret; // TODO
-
         if (arch != triton::arch::ARCH_VEX)
           return ret;
+
+        auto pairId = translateRegIDToPairID(regId);
+        triton::uint32 offset = pairId.first;
+        triton::uint32 size = pairId.second;
+        char name[32] = "";
+        snprintf(name, sizeof(name), "reg(offset=0x%x,size=%d)", offset, size);
+        ret.setName(std::string(name));
 
 #if 0
         switch (regId) {
@@ -60,6 +65,29 @@ namespace triton {
         }
 #endif
         return ret;
+      }
+
+
+
+
+      triton::uint32 vexSpecifications::translatePairIDToRegID(triton::uint32 offset, triton::uint32 size) const {
+        return offset * 0x10 + static_cast<triton::uint32>(std::log2(size));
+      }
+
+      triton::uint32 vexSpecifications::translatePairIDToRegID(std::pair<triton::uint32, triton::uint32> pairId) const {
+        return pairId.first * 0x10 + static_cast<triton::uint32>(std::log2(pairId.second));
+      }
+
+      std::pair<triton::uint32, triton::uint32> vexSpecifications::translateRegIDToPairID(triton::uint32 regId) const {
+        return std::make_pair(regId / 0x10, 1 << (regId % 0x10));
+      }
+
+      triton::uint32 vexSpecifications::translateTmpToRegID(triton::uint32 tmp) {
+        return tmp + 0x1000;
+      }
+
+      triton::uint32 vexSpecifications::translateRegIDToTmp(triton::uint32 regId) {
+        return regId - 0x1000;
       }
 
 

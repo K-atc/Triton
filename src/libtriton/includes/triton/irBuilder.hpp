@@ -63,6 +63,7 @@ namespace triton {
       protected:
         //! x86 ISA builder.
         triton::arch::SemanticsInterface* x86Isa;
+        triton::arch::SemanticsInterface* vexIsa;
 
       public:
         //! Constructor.
@@ -77,6 +78,7 @@ namespace triton {
 
         //! Builds the semantics of the instruction. Returns true if the instruction is supported.
         bool buildSemantics(triton::arch::Instruction& inst);
+        bool buildSemanticsDo(triton::arch::Instruction& inst);
 
         //! Everything which must be done before buiding the semantics
         void preIrInit(triton::arch::Instruction& inst);

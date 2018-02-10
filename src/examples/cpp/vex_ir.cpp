@@ -69,6 +69,7 @@ int main(int ac, const char **av) {
     }
 
     std::cout << std::endl << std::endl;
+    break;
   }
 
   return 0;

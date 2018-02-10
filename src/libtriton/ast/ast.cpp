@@ -15,6 +15,7 @@
 #include <triton/tritonToZ3Ast.hpp>
 #include <triton/z3Result.hpp>
 
+#include <triton/logger.hpp>
 
 
 namespace triton {
@@ -2473,6 +2474,8 @@ namespace triton {
       this->size = ((high - low) + 1);
       this->eval = ((this->childs[2]->evaluate() >> low) & this->getBitvectorMask());
 
+      std::cout << "ast: " << this << std::endl;
+      triton::logger::info("this->size = %d, this->childs[2]->getBitvectorSize() = %d, high = %d >= this->childs[2]->getBitvectorSize() = %d", size, this->childs[2]->getBitvectorSize(), high, this->childs[2]->getBitvectorSize());
       if (this->size > this->childs[2]->getBitvectorSize() || high >= this->childs[2]->getBitvectorSize())
         throw triton::exceptions::Ast("ExtractNode::init(): The size of the extraction is higher than the child expression.");
 

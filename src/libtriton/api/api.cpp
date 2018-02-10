@@ -12,6 +12,7 @@
 #include <triton/api.hpp>
 #include <triton/exceptions.hpp>
 
+#include <triton/logger.hpp>
 
 
 /*!

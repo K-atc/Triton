@@ -104,7 +104,6 @@ namespace triton {
           \brief a map of <regId, regClass>
         */
         std::map<triton::uint32, triton::arch::Register> registerState;
-        std::map<std::pair<triton::uint32, triton::uint32>, triton::arch::Register> pair_registerState;
 
         //! A list of operands
         std::vector<triton::arch::OperandWrapper> operands;

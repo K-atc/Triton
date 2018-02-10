@@ -10,6 +10,7 @@
 #include <triton/vexSemantics.hpp>
 #include <triton/vexSpecifications.hpp>
 
+#include <triton/logger.hpp>
 #include <triton/vexLifter.hpp>
 
 
@@ -65,39 +66,39 @@ namespace triton {
       }
 
 
-      bool vexSemantics::buildSemantics(triton::arch::Instruction& baseInst) {
+      bool vexSemantics::buildSemantics(triton::arch::Instruction& inst) {
         using namespace triton::intlibs::vexlifter;
-        for (auto &inst : baseInst.ir) {
-          switch ((triton::uint32) inst.getType()) {
-            case vex_itype(Ist_IMark):
-              break;
-            case vex_itype(Ist_Exit, Iex_RdTmp):
-              this->exit_s(inst); break;
-            case vex_itype(Ist_Jump):
-              this->jump_boring_s(inst); break; // TODO; Ijk_Syscall, etc.
-            case vex_itype(Ist_Put, Iex_Const):
-            case vex_itype(Ist_Put, Iex_RdTmp):
-            case vex_itype(Ist_Store, Iex_RdTmp):
-            case vex_itype(Ist_WrTmp, Iex_Get):
-            case vex_itype(Ist_WrTmp, Iex_RdTmp):
-            case vex_itype(Ist_WrTmp, Iex_Load):
-              this->mov_s(inst); break;
-              #if 0
-            case vex_itype(Ist_WrTmp, Iex_Unop, Iop_Cast):
-              this->mov_unop_cast_s(inst); break;
-            case vex_itype(Ist_WrTmp, Iex_Binop, Iop_CmpEQ):
-              this->mov_binop_cmpeq_s(inst); break;
-            case vex_itype(Ist_WrTmp, Iex_Binop, Iop_Add):
-              this->mov_binop_add_s(inst); break;
-            case vex_itype(Ist_WrTmp, Iex_Binop, Iop_Sub):
-              this->mov_binop_sub_s(inst); break;
-              #endif
-            default:
-              char msg[128];
-              snprintf(msg, sizeof(msg), "vexSemantics::vexSemantics(): Unknown type 0x%x.", inst.getType());
-              throw triton::exceptions::Semantics(msg);
-              return false;
-          }
+        triton::logger::info("vexSemantics::buildSemantics: type = %s", vex_repr_itype(inst.getType()).c_str());
+        switch ((triton::uint32) inst.getType()) {
+          case vex_itype(Ist_IMark):
+            triton::logger::info("vexSemantics::buildSemantics: Ist_IMark");
+            break;
+          case vex_itype(Ist_Exit, Iex_RdTmp):
+            this->exit_s(inst); break;
+          case vex_itype(Ist_Jump):
+            this->jump_boring_s(inst); break; // TODO; Ijk_Syscall, etc.
+          case vex_itype(Ist_Put, Iex_Const):
+          case vex_itype(Ist_Put, Iex_RdTmp):
+          case vex_itype(Ist_Store, Iex_RdTmp):
+          case vex_itype(Ist_WrTmp, Iex_Get):
+          case vex_itype(Ist_WrTmp, Iex_RdTmp):
+          case vex_itype(Ist_WrTmp, Iex_Load):
+            this->mov_s(inst); break;
+            #if 0
+          case vex_itype(Ist_WrTmp, Iex_Unop, Iop_Cast):
+            this->mov_unop_cast_s(inst); break;
+          case vex_itype(Ist_WrTmp, Iex_Binop, Iop_CmpEQ):
+            this->mov_binop_cmpeq_s(inst); break;
+          case vex_itype(Ist_WrTmp, Iex_Binop, Iop_Add):
+            this->mov_binop_add_s(inst); break;
+          case vex_itype(Ist_WrTmp, Iex_Binop, Iop_Sub):
+            this->mov_binop_sub_s(inst); break;
+            #endif
+          default:
+            char msg[128];
+            snprintf(msg, sizeof(msg), "vexSemantics::vexSemantics(): Unknown type 0x%x.", inst.getType());
+            throw triton::exceptions::Semantics(msg);
+            return false;
         }
         return true;
       }
@@ -189,16 +190,35 @@ namespace triton {
       }
 
       void vexSemantics::mov_s(triton::arch::Instruction& inst) {
-        auto dst = inst.operands[0];
-        auto src = inst.operands[1];
+        auto& dst = inst.operands[0];
+        auto& src = inst.operands[1];
+        assert(dst.getType() != triton::arch::OP_INVALID);
+        assert(src.getType() != triton::arch::OP_INVALID);
+        // auto reg_dst = triton::arch::Register(vexSpecifications::translatePairIDToRegID(2, 32));
+        // auto reg_src = triton::arch::Register(vexSpecifications::translatePairIDToRegID(1, 32));
+        auto reg_dst = triton::arch::Register(1 * 0x10 + 5);
+        auto reg_src = triton::arch::Register(2 * 0x10 + 5);
+        reg_src.setHigh(4 * 8 - 1);
+        reg_src.setLow(0 * 8);
+        reg_src.setParent(reg_src.getId());
+        reg_dst.setHigh(4 * 8 - 1);
+        reg_dst.setLow(0 * 8);
+        reg_dst.setParent(reg_dst.getId());
+        src = triton::arch::OperandWrapper(reg_src);
+        dst = triton::arch::OperandWrapper(reg_dst);
+        std::cout << "src: #" << reg_src.getId() << "<" << reg_src.getId() << " " << src << std::endl;
+        std::cout << "dst: #" << reg_dst.getId() << "<" << reg_dst.getId() << " " << dst << std::endl;
 
         /* Create the semantics */
+        triton::logger::info("Create the semantics");
         auto node = this->symbolicEngine->buildSymbolicOperand(inst, src);
 
         /* Create symbolic expression */
+        triton::logger::info("Create symbolic expression");
         auto expr = this->symbolicEngine->createSymbolicExpression(inst, node, dst, "MOV operation");
 
         /* Spread taint */
+        triton::logger::info("Spread taint");
         expr->isTainted = this->taintEngine->taintAssignment(dst, src);
 
         /* Upate the symbolic control flow */

@@ -13,8 +13,9 @@
 #include <triton/operandWrapper.hpp>
 #include <triton/register.hpp>
 #include <triton/x86Semantics.hpp>
+#include <triton/vexSemantics.hpp>
 
-
+#include <triton/logger.hpp>
 
 namespace triton {
   namespace arch {
@@ -48,8 +49,9 @@ namespace triton {
       this->symbolicEngine            = symbolicEngine;
       this->taintEngine               = taintEngine;
       this->x86Isa                    = new(std::nothrow) triton::arch::x86::x86Semantics(architecture, symbolicEngine, taintEngine);
+      this->vexIsa                    = new(std::nothrow) triton::arch::vex::vexSemantics(architecture, symbolicEngine, taintEngine);
 
-      if (this->x86Isa == nullptr || this->backupSymbolicEngine == nullptr || this->backupAstGarbageCollector == nullptr)
+      if (this->x86Isa == nullptr || this->vexIsa == nullptr || this->backupSymbolicEngine == nullptr || this->backupAstGarbageCollector == nullptr)
         throw triton::exceptions::IrBuilder("IrBuilder::IrBuilder(): Not enough memory.");
     }
 
@@ -58,28 +60,29 @@ namespace triton {
       delete this->backupSymbolicEngine;
       delete this->backupAstGarbageCollector;
       delete this->x86Isa;
+      delete this->vexIsa;
     }
 
-
-    bool IrBuilder::buildSemantics(triton::arch::Instruction& inst) {
+    bool IrBuilder::buildSemanticsDo(triton::arch::Instruction& inst) {
       bool ret = false;
 
-      if (this->architecture->getArchitecture() == triton::arch::ARCH_INVALID)
-        throw triton::exceptions::IrBuilder("IrBuilder::buildSemantics(): You must define an architecture.");
-
       /* Stage 1 - Update the context memory */
+      triton::logger::info("----------------");
+      triton::logger::info("Stage 1 - Update the context memory");
       std::list<triton::arch::MemoryAccess>::iterator it1;
       for (it1 = inst.memoryAccess.begin(); it1 != inst.memoryAccess.end(); it1++) {
         this->architecture->setConcreteMemoryValue(*it1);
       }
 
       /* Stage 2 - Update the context register */
+      triton::logger::info("Stage 2 - Update the context register");
       std::map<triton::uint32, triton::arch::Register>::iterator it2;
       for (it2 = inst.registerState.begin(); it2 != inst.registerState.end(); it2++) {
         this->architecture->setConcreteRegisterValue(it2->second);
       }
 
       /* Stage 3 - Initialize the target address of memory operands */
+      triton::logger::info("Stage 3 - Initialize the target address of memory operands");
       std::vector<triton::arch::OperandWrapper>::iterator it3;
       for (it3 = inst.operands.begin(); it3 != inst.operands.end(); it3++) {
         if (it3->getType() == triton::arch::OP_MEM) {
@@ -88,17 +91,50 @@ namespace triton {
       }
 
       /* Pre IR processing */
+      triton::logger::info("Pre IR processing");
       this->preIrInit(inst);
 
       /* Processing */
+      triton::logger::info("Processing");
       switch (this->architecture->getArchitecture()) {
         case triton::arch::ARCH_X86:
         case triton::arch::ARCH_X86_64:
           ret = this->x86Isa->buildSemantics(inst);
+          break;
+        case triton::arch::ARCH_VEX:
+          ret = this->vexIsa->buildSemantics(inst);
+          break;
+        default:
+          throw triton::exceptions::IrBuilder("IrBuilder::buildSemanticsDo(): Unhandled architecture.");
       }
 
       /* Post IR processing */
+      triton::logger::info("Post IR processing");
       this->postIrInit(inst);
+
+      return ret;
+    }
+
+    bool IrBuilder::buildSemantics(triton::arch::Instruction& inst) {
+      bool ret = false;
+
+      if (this->architecture->getArchitecture() == triton::arch::ARCH_INVALID)
+        throw triton::exceptions::IrBuilder("IrBuilder::buildSemantics(): You must define an architecture.");
+
+      switch (this->architecture->getArchitecture()) {
+        case triton::arch::ARCH_X86:
+        case triton::arch::ARCH_X86_64:
+          ret = buildSemanticsDo(inst);
+          break;
+        case triton::arch::ARCH_VEX: {
+          for (auto &ir_inst : inst.ir) {
+            ret |= buildSemanticsDo(ir_inst);
+          }
+          break;
+        }
+        default:
+          throw triton::exceptions::IrBuilder("IrBuilder::buildSemantics(): Unhandled architecture.");
+      }
 
       return ret;
     }

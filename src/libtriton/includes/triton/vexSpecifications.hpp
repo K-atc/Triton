@@ -56,16 +56,11 @@ namespace triton {
           //! Returns all specifications about a register from its ID according to the arch (32 or 64-bits).
           triton::arch::RegisterSpecification getVexRegisterSpecification(triton::uint32 arch, triton::uint32 regId) const;
 
-#if 0
-          //! Converts a capstone's register id to a triton's register id.
-          triton::uint32 capstoneRegisterToTritonRegister(triton::uint32 id) const;
-
-          //! Converts a capstone's instruction id to a triton's instruction id.
-          triton::uint32 capstoneInstructionToTritonInstruction(triton::uint32 id) const;
-
-          //! Converts a capstone's prefix id to a triton's prefix id.
-          triton::uint32 capstonePrefixToTritonPrefix(triton::uint32 id) const;
-#endif
+          triton::uint32 translatePairIDToRegID(triton::uint32 offset, triton::uint32 size) const;
+          triton::uint32 translatePairIDToRegID(std::pair<triton::uint32, triton::uint32> pairId) const;
+          std::pair<triton::uint32, triton::uint32> translateRegIDToPairID(triton::uint32 regId) const;
+          triton::uint32 translateTmpToRegID(triton::uint32 tmp);
+          triton::uint32 translateRegIDToTmp(triton::uint32 regId);
       };
 
 

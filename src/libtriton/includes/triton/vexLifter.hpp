@@ -186,10 +186,12 @@ typedef struct {
 
 typedef struct : vex_expr {
     vex_tag_iop op = "Iop_Invalid";
+    vex_expr addr;
     vex_expr args[8];
     int nargs = 0;
     vex_ir_endness endness = Iend_Invalid;
 } vex_data;
+
 
 typedef struct {
     vex_tag_ist tag = Ist_Invalid;
@@ -224,12 +226,14 @@ typedef struct {
                 return vex_itype(ist, iex) + iop * VEX_IOP_BASE;
             }
 
+            std::string vex_repr_itype(triton::uint32 type);
+
             vex_abst_iop vex_iop(vex_tag_iop tag);
 
             void print_vex_expr(vex_expr expr, char* prefix);
             void print_vex_insn(vex_insn insn);
             void print_vex_insns(vex_insns insns);
-            bool vex_lift(vex_insns_group *insns_group, unsigned char *insns_bytes, unsigned int start_addr, unsigned int count);
+            bool vex_lift(vex_insns_group *insns_group, unsigned char *insns_bytes, triton::uint64 start_addr, triton::uint64 count);
 
             std::string vex_tag_enum_to_str(vex_tag_iex tag);
         }

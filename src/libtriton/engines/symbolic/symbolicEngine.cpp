@@ -12,6 +12,8 @@
 #include <triton/coreUtils.hpp>
 #include <triton/symbolicEngine.hpp>
 
+#include <sstream>
+#include <triton/logger.hpp>
 
 
 /*! \page engine_DSE_page Dynamic Symbolic Execution
@@ -799,6 +801,8 @@ namespace triton {
         triton::uint32 high           = reg.getHigh();
         triton::uint32 low            = reg.getLow();
 
+        triton::logger::info("SymbolicEngine::buildSymbolicRegister: bvSize = %d, high = %d, low = %d", bvSize, high, low);
+
         /* Check if the register is already symbolic */
         if (symReg != triton::engines::symbolic::UNSET)
           op = triton::ast::extract(high, low, triton::ast::reference(symReg));
@@ -899,6 +903,10 @@ namespace triton {
         triton::uint32 regSize                    = reg.getSize();
         triton::arch::Register parentReg          = reg.getParent();
 
+        std::ostringstream str;
+        str << reg;
+        triton::logger::info("SymbolicEngine::createSymbolicRegisterExpression: %s", str.str().c_str());
+
         if (this->architecture->isFlag(reg))
           throw triton::exceptions::SymbolicEngine("SymbolicEngine::createSymbolicRegisterExpression(): The register cannot be a flag.");
 
@@ -984,6 +992,9 @@ namespace triton {
         triton::uint32 id               = parent.getId();
 
         /* We can assign an expression only on parent registers */
+        std::cout << "reg: " << reg << std::endl;
+        std::cout << "parent: " << parent << std::endl;
+        triton::logger::info("reg.getId() = 0x%x,  parent.getId() = 0x%x", reg.getId(), parent.getId());
         if (reg.getId() != parent.getId())
           throw triton::exceptions::SymbolicEngine("SymbolicEngine::assignSymbolicExpressionToRegister(): We can assign an expression only on parent registers.");
 

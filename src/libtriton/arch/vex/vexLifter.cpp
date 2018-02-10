@@ -277,6 +277,56 @@ std::string vex_tag_enum_to_str(vex_tag_ico tag)
     return "Ico_Invalid";
 }
 
+std::string vex_tag_enum_to_str(vex_abst_iop tag)
+{
+    tag_enum_to_str(Iop_Add);
+    tag_enum_to_str(Iop_Sub);
+    tag_enum_to_str(Iop_Mul);
+    tag_enum_to_str(Iop_MullS);
+    tag_enum_to_str(Iop_MullU);
+    tag_enum_to_str(Iop_DivS);
+    tag_enum_to_str(Iop_DivU);
+    tag_enum_to_str(Iop_Mod);
+    tag_enum_to_str(Iop_Or);
+    tag_enum_to_str(Iop_And);
+    tag_enum_to_str(Iop_Xor);
+    tag_enum_to_str(Iop_Shr);
+    tag_enum_to_str(Iop_Shl);
+    tag_enum_to_str(Iop_Not);
+    tag_enum_to_str(Iop_CmpEQ);
+    tag_enum_to_str(Iop_CmpNE);
+    tag_enum_to_str(Iop_CmpSLT);
+    tag_enum_to_str(Iop_CmpSLE);
+    tag_enum_to_str(Iop_CmpULT);
+    tag_enum_to_str(Iop_CmpULE);
+    tag_enum_to_str(Iop_CmpSGE);
+    tag_enum_to_str(Iop_CmpUGE);
+    tag_enum_to_str(Iop_CmpSGT);
+    tag_enum_to_str(Iop_CmpUGT);
+    tag_enum_to_str(Iop_Cast);
+    tag_enum_to_str(Iop_CastU);
+    tag_enum_to_str(Iop_CastS);
+    tag_enum_to_str(Iop_CastHI);
+    tag_enum_to_str(Iop_CastHL);
+    return "Iop_Invalid";
+}
+
+std::string vex_repr_itype(triton::uint32 type) {
+    triton::uint32 ist = type / VEX_IST_BASE;
+    type -= ist * VEX_IST_BASE;
+    triton::uint32 iex = type / VEX_IEX_BASE;
+    type -= iex * VEX_IEX_BASE;
+    triton::uint32 iop = type / VEX_IOP_BASE;
+    std::ostringstream str;
+    str <<
+        vex_tag_enum_to_str((vex_tag_ist)(ist)) <<
+        "|" <<
+        vex_tag_enum_to_str((vex_tag_iex)(iex)) <<
+        "|" <<
+        vex_tag_enum_to_str((vex_abst_iop)(iop));
+    return str.str();
+}
+
 void print_vex_const(vex_const vconst, char* prefix)
 {
     if (vconst.tag == Ico_Invalid) return;
@@ -287,8 +337,8 @@ void print_vex_const(vex_const vconst, char* prefix)
 
 void print_vex_expr(vex_expr expr, char* prefix)
 {
-    if (expr.tag == Iex_Invalid) return;
     printf("\t%stag = %s\n", prefix, vex_tag_enum_to_str(expr.tag).c_str());
+    if (expr.tag == Iex_Invalid) return;
     printf("\t%scon = 0x%x\n", prefix, expr.con);
     printf("\t%stmp = %d\n", prefix, expr.tmp);
     printf("\t%soffset = 0x%x\n", prefix, expr.offset);
@@ -299,7 +349,10 @@ void print_vex_expr(vex_expr expr, char* prefix)
 void print_vex_insn_data(vex_data data, char* prefix)
 {
     if (data.tag == Iex_Invalid && data.op == "Iop_Invalid") return;
-    print_vex_expr(static_cast<vex_expr> (data), (char *) "");
+    print_vex_expr(static_cast<vex_expr> (data), (char *) prefix);
+    // if (data.tag == Iex_Load) {
+        print_vex_expr(data.addr, (char *) "data.addr.");
+    // }
     printf("\t%sop = %s\n", prefix, data.op.c_str());
     printf("\t%snargs = %d\n", prefix, data.nargs);
     if (data.endness != Iend_Invalid) {
@@ -315,7 +368,8 @@ void print_vex_insn_data(vex_data data, char* prefix)
 void print_vex_insn(vex_insn insn)
 {
     printf("%s\n", insn.full.c_str());
-    printf("\ttype = 0x%x\n", vex_itype(insn.tag, insn.data.tag, vex_iop(insn.data.op)));
+    // printf("\ttype = 0x%x\n", vex_itype(insn.tag, insn.data.tag, vex_iop(insn.data.op)));
+    printf("\ttype = %s\n", vex_repr_itype(vex_itype(insn.tag, insn.data.tag, vex_iop(insn.data.op))).c_str());
     printf("\ttag = %s\n", vex_tag_enum_to_str(insn.tag).c_str());
     printf("\toffset = %d\n", insn.offset);
     if (insn.tag == Ist_Store) {
@@ -370,7 +424,7 @@ void set_expr(vex_expr *insn, PyObject *obj)
     if (v) insn->offset = PyInt_AsLong(v);
 }
 
-bool vex_lift(vex_insns_group *insns_group, unsigned char *insns_bytes, unsigned int start_addr, unsigned int count)
+bool vex_lift(vex_insns_group *insns_group, unsigned char *insns_bytes, triton::uint64 start_addr, triton::uint64 count)
 {
     PyObject *global, *func;
 
@@ -384,11 +438,21 @@ bool vex_lift(vex_insns_group *insns_group, unsigned char *insns_bytes, unsigned
     global = PyModule_GetDict(PyImport_ImportModule("__main__"));
     func = PyDict_GetItemString(global, "Lift");
 
+    setvbuf(stdout, NULL, _IONBF, 0);
     if (PyCallable_Check(func)) // Checks if we got ref
     {
         // Do Lift
-        PyObject *ans = PyEval_CallFunction(func, "zii", insns_bytes, start_addr, count);
-        if( ans )
+        Py_ssize_t insns_bytes_size = PyLong_AsSsize_t(PyLong_FromLong(count));
+        // PyObject *ans = PyEval_CallFunction(func, "y*ii",
+        //     PyBytes_FromStringAndSize((const char*) insns_bytes, insns_bytes_size),
+        //     start_addr,
+        //     count
+        // );
+        PyObject* pArgs = PyTuple_New(2);
+        PyTuple_SetItem(pArgs, 0, PyBytes_FromStringAndSize((const char*) insns_bytes, insns_bytes_size));
+        PyTuple_SetItem(pArgs, 1, PyLong_FromLong(start_addr));
+        PyObject* ans = PyObject_CallObject(func, pArgs);
+        if (ans)
         {
             if (PyList_Check(ans)) {
                 unsigned int current_addr = 0;
@@ -427,6 +491,8 @@ bool vex_lift(vex_insns_group *insns_group, unsigned char *insns_bytes, unsigned
                     if (data) {
                         v = PyDict_GetItemString(data, "tag");
                         insn.data.tag = vex_tag_iex_str_to_enum(PyString_AsString(v));
+                        v = PyDict_GetItemString(data, "addr");
+                        if (v) set_expr(&insn.data.addr, v);
                         v = PyDict_GetItemString(data, "ty");
                         if (v) insn.data.ty = vex_ir_ity_str_to_enum(PyString_AsString(v));
                         v = PyDict_GetItemString(data, "endness");

@@ -9,6 +9,8 @@
 #include <triton/cpuSize.hpp>
 #include <triton/exceptions.hpp>
 
+#include <triton/logger.hpp>
+
 
 
 namespace triton {
@@ -63,6 +65,7 @@ namespace triton {
       if (this->high >= MAX_BITS_SUPPORTED)
         throw triton::exceptions::BitsVector("BitsVector::setHigh(): The highest bit cannot be greater than MAX_BITS_SUPPORTED.");
 
+      // triton::logger::info("BitsVector::setHigh: this->getVectorSize() = 0x%x", this->getVectorSize());
       if (this->getVectorSize() % BYTE_SIZE_BIT && this->getVectorSize() != FLAG_SIZE_BIT)
         throw triton::exceptions::BitsVector("BitsVector::setHigh(): The vector size must be a multiple of 8.");
     }
