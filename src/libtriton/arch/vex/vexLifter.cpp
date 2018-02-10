@@ -312,32 +312,37 @@ void print_vex_insn_data(vex_data data, char* prefix)
     }
 }
 
+void print_vex_insn(vex_insn insn)
+{
+    printf("%s\n", insn.full.c_str());
+    printf("\ttype = 0x%x\n", vex_itype(insn.tag, insn.data.tag, vex_iop(insn.data.op)));
+    printf("\ttag = %s\n", vex_tag_enum_to_str(insn.tag).c_str());
+    printf("\toffset = %d\n", insn.offset);
+    if (insn.tag == Ist_Store) {
+        print_vex_expr(insn.addr_expr, (char *) "addr.");
+        printf("\tendness = %s\n", vex_tag_enum_to_str(insn.endness).c_str());
+    }
+    printf("\ttmp = %d\n", insn.tmp);
+    print_vex_insn_data(insn.data, (char *) "data.");
+    if (insn.tag == Ist_IMark) {
+        printf("\tdisasm = %s\n", insn.disasm.c_str());
+        printf("\taddr = 0x%x\n", insn.addr);
+        printf("\tlen = %d\n", insn.len);
+    }
+    if (insn.tag == Ist_Exit || insn.tag == Ist_Jump) {
+        printf("\tjumpkind = %s\n", vex_tag_enum_to_str(insn.jumpkind).c_str());
+    }
+    if (insn.tag == Ist_Exit) {
+        print_vex_expr(insn.guard, (char *) "guard.");
+        printf("\toffsIP = %d\n", insn.offsIP);
+        print_vex_const(insn.dst, (char *) "dst.");
+    }
+}
+
 void print_vex_insns(vex_insns insns)
 {
     for (auto &insn : insns) {
-        printf("%s\n", insn.full.c_str());
-        printf("\ttype = 0x%x\n", vex_itype(insn.tag, insn.data.tag, vex_iop(insn.data.op)));
-        printf("\ttag = %s\n", vex_tag_enum_to_str(insn.tag).c_str());
-        printf("\toffset = %d\n", insn.offset);
-        if (insn.tag == Ist_Store) {
-            print_vex_expr(insn.addr_expr, (char *) "addr.");
-            printf("\tendness = %s\n", vex_tag_enum_to_str(insn.endness).c_str());
-        }
-        printf("\ttmp = %d\n", insn.tmp);
-        print_vex_insn_data(insn.data, (char *) "data.");
-        if (insn.tag == Ist_IMark) {
-            printf("\tdisasm = %s\n", insn.disasm.c_str());
-            printf("\taddr = 0x%x\n", insn.addr);
-            printf("\tlen = %d\n", insn.len);
-        }
-        if (insn.tag == Ist_Exit || insn.tag == Ist_Jump) {
-            printf("\tjumpkind = %s\n", vex_tag_enum_to_str(insn.jumpkind).c_str());
-        }
-        if (insn.tag == Ist_Exit) {
-            print_vex_expr(insn.guard, (char *) "guard.");
-            printf("\toffsIP = %d\n", insn.offsIP);
-            print_vex_const(insn.dst, (char *) "dst.");
-        }
+        print_vex_insn(insn);
     }
 }
 
@@ -386,7 +391,7 @@ bool vex_lift(vex_insns_group *insns_group, unsigned char *insns_bytes, unsigned
         if( ans )
         {
             if (PyList_Check(ans)) {
-                unsigned int current_addr;
+                unsigned int current_addr = 0;
                 for(Py_ssize_t i = 0; i < PyList_Size(ans); i++) {
                     PyObject *item = PyList_GetItem(ans, i);
                     vex_insn insn;
@@ -442,6 +447,7 @@ bool vex_lift(vex_insns_group *insns_group, unsigned char *insns_bytes, unsigned
                             for(Py_ssize_t j = 0; j < PyList_Size(args); j++) {
                                 PyObject *args_j = PyList_GetItem(args, j);
                                 set_expr(&insn.data.args[j], args_j);
+                                insn.data.args[j].result_size = insn.data.result_size;
                             }
                         }
                     }
@@ -459,7 +465,7 @@ bool vex_lift(vex_insns_group *insns_group, unsigned char *insns_bytes, unsigned
             }
             for(auto itr = insns_group->begin(); itr != insns_group->end(); ++itr) {
                 puts("");
-                printf("*** [address = 0x%x] ***\n", itr->first);
+                printf("*** [address = 0x%lx] ***\n", itr->first);
                 print_vex_insns(itr->second);
             }
         }

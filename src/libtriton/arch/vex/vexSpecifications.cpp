@@ -27,6 +27,7 @@ namespace triton {
 
       triton::arch::Register vex_regs    = triton::arch::Register();
       triton::arch::Register vex_tmp     = triton::arch::Register();
+      triton::arch::Register vex_reg_pc  = triton::arch::Register();
 
 
       vexSpecifications::vexSpecifications() {

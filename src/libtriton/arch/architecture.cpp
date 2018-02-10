@@ -167,10 +167,16 @@ namespace triton {
     }
 
 
-    void Architecture::disassembly(triton::arch::Instruction& inst) const {
+    void Architecture::disassembly(triton::arch::Instruction& inst) {
       if (!this->cpu)
         throw triton::exceptions::Architecture("Architecture::disassembly(): You must define an architecture.");
       this->cpu->disassembly(inst);
+    }
+
+    void Architecture::disassembleBytes(triton::uint8 *insnBytes, triton::uint32 insnBytesSize, triton::uint64 address) {
+      if (!this->cpu)
+        throw triton::exceptions::Architecture("Architecture::disassembly(): You must define an architecture.");
+      this->cpu->disassembleBytes(insnBytes, insnBytesSize, address);
     }
 
 

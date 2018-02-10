@@ -35,7 +35,7 @@ struct op trace[] = {
 int main(int ac, const char **av) {
 
   /* Set the arch */
-  api.setArchitecture(ARCH_X86_64);
+  api.setArchitecture(ARCH_VEX);
 
   for (unsigned int i = 0; trace[i].inst; i++) {
     /* Build an instruction */

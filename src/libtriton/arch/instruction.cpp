@@ -68,6 +68,7 @@ namespace triton {
       this->tid                 = other.tid;
       this->type                = other.type;
       this->writtenRegisters    = other.writtenRegisters;
+      this->ir                  = other.ir;
 
       std::memcpy(this->opcodes, other.opcodes, sizeof(this->opcodes));
 
@@ -171,15 +172,6 @@ namespace triton {
         reg = this->registerState[regId];
       return reg;
     }
-
-#if 0
-    triton::arch::Register Instruction::getRegisterState(std::pair<triton::uint32, triton::uint32> regId) {
-      triton::arch::Register reg(regId);
-      if (this->pair_registerState.find(regId) != this->pair_registerState.end())
-        reg = this->pair_registerState[regId];
-      return reg;
-    }
-#endif
 
     void Instruction::setLoadAccess(const triton::arch::MemoryAccess& mem, triton::ast::AbstractNode* node) {
       this->loadAccess.insert(std::make_pair(mem, node));

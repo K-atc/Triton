@@ -17,6 +17,11 @@ target_link_libraries(ir triton)
 add_test(IR ir)
 add_dependencies(check ir)
 
+add_executable(vex_ir vex_ir.cpp)
+target_link_libraries(vex_ir triton)
+add_test(VexIR vex_ir)
+add_dependencies(check vex_ir)
+
 add_executable(simplification simplification.cpp)
 target_link_libraries(simplification triton)
 add_test(Simplification simplification)

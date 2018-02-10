@@ -634,7 +634,7 @@ namespace triton {
       }
 
 
-      void x8664Cpu::disassembly(triton::arch::Instruction& inst) const {
+      void x8664Cpu::disassembly(triton::arch::Instruction& inst) {
         triton::extlibs::capstone::csh       handle;
         triton::extlibs::capstone::cs_insn*  insn;
         triton::usize                        count = 0;
@@ -750,6 +750,10 @@ namespace triton {
 
         triton::extlibs::capstone::cs_close(&handle);
         return;
+      }
+
+      void x8664Cpu::disassembleBytes(triton::uint8 *insnBytes, triton::uint32 insnBytesSize, triton::uint64 address) {
+        throw triton::exceptions::Disassembly("x8664Cpu::disassembleBytes(): Not Implemented");
       }
 
 

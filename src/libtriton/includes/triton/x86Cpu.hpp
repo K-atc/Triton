@@ -227,7 +227,8 @@ namespace triton {
           triton::uint512 getConcreteRegisterValue(const triton::arch::Register& reg, bool execCallbacks=true) const;
           triton::uint8 getConcreteMemoryValue(triton::uint64 addr) const;
           void clear(void);
-          void disassembly(triton::arch::Instruction& inst) const;
+          void disassembly(triton::arch::Instruction& inst);
+          void disassembleBytes(triton::uint8 *insnBytes, triton::uint32 insnBytesSize, triton::uint64 address);
           void init(void);
           void setConcreteMemoryAreaValue(triton::uint64 baseAddr, const std::vector<triton::uint8>& values);
           void setConcreteMemoryAreaValue(triton::uint64 baseAddr, const triton::uint8* area, triton::usize size);

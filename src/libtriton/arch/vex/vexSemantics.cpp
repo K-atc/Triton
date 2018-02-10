@@ -65,37 +65,39 @@ namespace triton {
       }
 
 
-      bool vexSemantics::buildSemantics(triton::arch::Instruction& inst) {
+      bool vexSemantics::buildSemantics(triton::arch::Instruction& baseInst) {
         using namespace triton::intlibs::vexlifter;
-        switch ((triton::uint32) inst.getType()) {
-          case vex_itype(Ist_IMark):
-            break;
-          case vex_itype(Ist_Exit, Iex_RdTmp):
-            this->exit_s(inst); break;
-          case vex_itype(Ist_Jump):
-            this->jump_boring_s(inst); break; // TODO; Ijk_Syscall, etc.
-          case vex_itype(Ist_Put, Iex_Const):
-          case vex_itype(Ist_Put, Iex_RdTmp):
-          case vex_itype(Ist_Store, Iex_RdTmp):
-          case vex_itype(Ist_WrTmp, Iex_Get):
-          case vex_itype(Ist_WrTmp, Iex_RdTmp):
-          case vex_itype(Ist_WrTmp, Iex_Load):
-            this->mov_s(inst); break;
-            #if 0
-          case vex_itype(Ist_WrTmp, Iex_Unop, Iop_Cast):
-            this->mov_unop_cast_s(inst); break;
-          case vex_itype(Ist_WrTmp, Iex_Binop, Iop_CmpEQ):
-            this->mov_binop_cmpeq_s(inst); break;
-          case vex_itype(Ist_WrTmp, Iex_Binop, Iop_Add):
-            this->mov_binop_add_s(inst); break;
-          case vex_itype(Ist_WrTmp, Iex_Binop, Iop_Sub):
-            this->mov_binop_sub_s(inst); break;
-            #endif
-          default:
-            char msg[128];
-            snprintf(msg, sizeof(msg), "vexSemantics::vexSemantics(): Unknown type 0x%x.", inst.getType());
-            throw triton::exceptions::Semantics(msg);
-            return false;
+        for (auto &inst : baseInst.ir) {
+          switch ((triton::uint32) inst.getType()) {
+            case vex_itype(Ist_IMark):
+              break;
+            case vex_itype(Ist_Exit, Iex_RdTmp):
+              this->exit_s(inst); break;
+            case vex_itype(Ist_Jump):
+              this->jump_boring_s(inst); break; // TODO; Ijk_Syscall, etc.
+            case vex_itype(Ist_Put, Iex_Const):
+            case vex_itype(Ist_Put, Iex_RdTmp):
+            case vex_itype(Ist_Store, Iex_RdTmp):
+            case vex_itype(Ist_WrTmp, Iex_Get):
+            case vex_itype(Ist_WrTmp, Iex_RdTmp):
+            case vex_itype(Ist_WrTmp, Iex_Load):
+              this->mov_s(inst); break;
+              #if 0
+            case vex_itype(Ist_WrTmp, Iex_Unop, Iop_Cast):
+              this->mov_unop_cast_s(inst); break;
+            case vex_itype(Ist_WrTmp, Iex_Binop, Iop_CmpEQ):
+              this->mov_binop_cmpeq_s(inst); break;
+            case vex_itype(Ist_WrTmp, Iex_Binop, Iop_Add):
+              this->mov_binop_add_s(inst); break;
+            case vex_itype(Ist_WrTmp, Iex_Binop, Iop_Sub):
+              this->mov_binop_sub_s(inst); break;
+              #endif
+            default:
+              char msg[128];
+              snprintf(msg, sizeof(msg), "vexSemantics::vexSemantics(): Unknown type 0x%x.", inst.getType());
+              throw triton::exceptions::Semantics(msg);
+              return false;
+          }
         }
         return true;
       }

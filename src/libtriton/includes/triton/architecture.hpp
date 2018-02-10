@@ -121,7 +121,9 @@ namespace triton {
         std::set<triton::arch::Register*> getParentRegisters(void) const;
 
         //! Disassembles the instruction according to the architecture.
-        void disassembly(triton::arch::Instruction& inst) const;
+        void disassembly(triton::arch::Instruction& inst);
+
+        void disassembleBytes(triton::uint8 *insnBytes, triton::uint32 insnBytesSize, triton::uint64 address);
 
         //! Builds the instruction semantics according to the architecture. Returns true if the instruction is supported.
         bool buildSemantics(triton::arch::Instruction& inst);

@@ -76,6 +76,7 @@ namespace triton {
           std::map<std::pair<triton::uint32, triton::uint32>, triton::uint32> reg_map_pairid_to_regid;
           std::map<triton::uint32, std::pair<triton::uint32, triton::uint32>> reg_map_regid_to_pairid;
 
+
           triton::uint32 translateIexToRegId(triton::intlibs::vexlifter::vex_expr expr);
           triton::uint32 translateVexTyToSize(triton::intlibs::vexlifter::vex_ir_ity ty);
           triton::uint32 translatePairIDToRegID(std::pair<triton::uint32, triton::uint32> pairId) const ;
@@ -85,6 +86,7 @@ namespace triton {
           triton::arch::OperandWrapper generateOperandWrapperFromExpr(triton::intlibs::vexlifter::vex_expr expr, triton::arch::Instruction &inst);
 
         public:
+
           //! Constructor.
           vexCpu(triton::callbacks::Callbacks* callbacks=nullptr);
 
@@ -134,9 +136,8 @@ namespace triton {
           triton::uint512 getConcreteRegisterValue(const triton::arch::Register& reg, bool execCallbacks=true) const;
           triton::uint8 getConcreteMemoryValue(triton::uint64 addr) const;
           void clear(void);
-          void disassembly(triton::arch::Instruction& inst) const;
-          void disassembly2(std::vector<triton::arch::Instruction>& insts, triton::uint64 address);
-          void disassemble_block(triton::uint8 *opcodes, triton::uint32 opcodesSize, triton::uint32 address);
+          void disassembly(triton::arch::Instruction& inst);
+          void disassembleBytes(triton::uint8 *insnBytes, triton::uint32 insnBytesSize, triton::uint64 address);
           void init(void);
           void setConcreteMemoryAreaValue(triton::uint64 baseAddr, const std::vector<triton::uint8>& values);
           void setConcreteMemoryAreaValue(triton::uint64 baseAddr, const triton::uint8* area, triton::usize size);

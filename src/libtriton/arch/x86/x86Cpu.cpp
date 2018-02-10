@@ -512,7 +512,7 @@ namespace triton {
       }
 
 
-      void x86Cpu::disassembly(triton::arch::Instruction& inst) const {
+      void x86Cpu::disassembly(triton::arch::Instruction& inst) {
         triton::extlibs::capstone::csh       handle;
         triton::extlibs::capstone::cs_insn*  insn;
         triton::usize                        count = 0;
@@ -629,6 +629,9 @@ namespace triton {
         return;
       }
 
+      void x86Cpu::disassembleBytes(triton::uint8 *insnBytes, triton::uint32 insnBytesSize, triton::uint64 address) {
+        throw triton::exceptions::Disassembly("x86Cpu::disassembleBytes(): Not Implemented");
+      }
 
       triton::uint8 x86Cpu::getConcreteMemoryValue(triton::uint64 addr) const {
         if (this->memory.find(addr) == this->memory.end())

@@ -372,11 +372,15 @@ namespace triton {
   }
 
 
-  void API::disassembly(triton::arch::Instruction& inst) const {
+  void API::disassembly(triton::arch::Instruction& inst) {
     this->checkArchitecture();
     this->arch.disassembly(inst);
   }
 
+  void API::disassembleBytes(triton::uint8 *insnBytes, triton::uint32 insnBytesSize, triton::uint64 address) {
+    this->checkArchitecture();
+    this->arch.disassembleBytes(insnBytes, insnBytesSize, address);
+  }
 
 
   /* Processing API ================================================================================ */
@@ -449,7 +453,6 @@ namespace triton {
     this->disassembly(inst);
     return this->buildSemantics(inst);
   }
-
 
 
   /* IR builder API ================================================================================= */

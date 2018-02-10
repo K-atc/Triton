@@ -61,6 +61,26 @@ namespace triton {
       }
     }
 
+    template <> triton::uint16 fromBufferToUint<>(const triton::uint8* buffer) {
+      triton::uint16 value = 0;
+      for (triton::sint32 i = WORD_SIZE-1; i >= 0; i--)
+        value = ((value << BYTE_SIZE_BIT) | buffer[i]);
+      return value;
+    }
+
+    template <> triton::uint32 fromBufferToUint<>(const triton::uint8* buffer) {
+      triton::uint32 value = 0;
+      for (triton::sint32 i = DWORD_SIZE-1; i >= 0; i--)
+        value = ((value << BYTE_SIZE_BIT) | buffer[i]);
+      return value;
+    }
+
+    template <> triton::uint64 fromBufferToUint<>(const triton::uint8* buffer) {
+      triton::uint64 value = 0;
+      for (triton::sint32 i = QWORD_SIZE-1; i >= 0; i--)
+        value = ((value << BYTE_SIZE_BIT) | buffer[i]);
+      return value;
+    }
 
     template <> triton::uint128 fromBufferToUint<>(const triton::uint8* buffer) {
       triton::uint128 value = 0;

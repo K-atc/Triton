@@ -192,8 +192,9 @@ namespace triton {
         void unmapMemory(triton::uint64 baseAddr, triton::usize size=1);
 
         //! [**architecture api**] - Disassembles the instruction and setup operands. You must define an architecture before. \sa processing().
-        void disassembly(triton::arch::Instruction& inst) const;
+        void disassembly(triton::arch::Instruction& inst);
 
+        void disassembleBytes(triton::uint8 *insnBytes, triton::uint32 insnBytesSize, triton::uint64 address);
 
 
         /* Processing API ================================================================================ */

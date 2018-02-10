@@ -112,6 +112,9 @@ namespace triton {
         //! The semantics set of the instruction.
         std::vector<triton::engines::symbolic::SymbolicExpression*> symbolicExpressions;
 
+        //! IRs (e.g. Vex IR)
+        std::vector<triton::arch::Instruction> ir;
+
         //! Constructor.
         Instruction();
 

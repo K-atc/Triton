@@ -209,7 +209,7 @@ typedef struct {
 } vex_insn;
 
             typedef std::vector<vex_insn> vex_insns;
-            typedef std::map<unsigned int, vex_insns> vex_insns_group;
+            typedef std::map<triton::uint64, vex_insns> vex_insns_group;
 
 
             constexpr triton::uint32 vex_itype(vex_tag_ist const &ist) {
@@ -226,6 +226,8 @@ typedef struct {
 
             vex_abst_iop vex_iop(vex_tag_iop tag);
 
+            void print_vex_expr(vex_expr expr, char* prefix);
+            void print_vex_insn(vex_insn insn);
             void print_vex_insns(vex_insns insns);
             bool vex_lift(vex_insns_group *insns_group, unsigned char *insns_bytes, unsigned int start_addr, unsigned int count);
 

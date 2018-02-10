@@ -38,6 +38,7 @@ namespace triton {
         \brief This interface is used as abstract CPU interface. All CPU must use this interface. */
     class CpuInterface {
       public:
+
         //! Destructor.
         virtual ~CpuInterface(){};
 
@@ -75,7 +76,11 @@ namespace triton {
         virtual std::set<triton::arch::Register*> getParentRegisters(void) const = 0;
 
         //! Disassembles the instruction according to the architecture.
-        virtual void disassembly(triton::arch::Instruction& inst) const = 0; 
+        virtual void disassembly(triton::arch::Instruction& inst) = 0;
+
+        //! Disassembles bytes according to the architecture.
+        virtual void disassembleBytes(triton::uint8 *insnBytes, triton::uint32 insnBytesSize, triton::uint64 address) = 0;
+
 
         //! Returns the concrete value of a memory cell.
         virtual triton::uint8 getConcreteMemoryValue(triton::uint64 addr) const = 0;
