@@ -69,7 +69,7 @@ namespace triton {
           ret.setLow(0);
           ret.setParentId(regId); // refference to self
         }
-        else if (ID_REG_TMP < regId && regId < ID_REG_LAST_ITEM) { // a query for tmp
+        else if (ID_REG_TMP <= regId && regId < ID_REG_LAST_ITEM) { // a query for tmp
           snprintf(name, sizeof(name), "t%d", regId - ID_REG_TMP);
           ret.setName(std::string(name));
           ret.setHigh(QWORD_SIZE_BIT - 1); // FIXME: 

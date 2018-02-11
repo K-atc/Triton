@@ -1003,10 +1003,10 @@ namespace triton {
         triton::uint32 id               = parent.getId();
 
         /* We can assign an expression only on parent registers */
-        // std::cout << "SymbolicEngine::assignSymbolicExpressionToRegister:" << std::endl;
-        // std::cout << "\tse: " << *se << std::endl;
-        // std::cout << "\treg: " << reg << std::endl;
-        // std::cout << "\tparent: " << parent << std::endl;
+        std::cout << "SymbolicEngine::assignSymbolicExpressionToRegister:" << std::endl;
+        std::cout << "\tse: " << *se << std::endl;
+        std::cout << "\treg: " << reg << std::endl;
+        std::cout << "\tparent: " << parent << std::endl;
         if (reg.getId() != parent.getId())
           throw triton::exceptions::SymbolicEngine("SymbolicEngine::assignSymbolicExpressionToRegister(): We can assign an expression only on parent registers.");
 
