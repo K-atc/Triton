@@ -25,6 +25,8 @@ namespace triton {
       vexCpu::vexCpu(triton::callbacks::Callbacks* callbacks) {
         this->callbacks = callbacks;
         this->clear();
+
+        triton::intlibs::vexlifter::vex_lift_init();
       }
 
 
@@ -35,6 +37,8 @@ namespace triton {
 
       vexCpu::~vexCpu() {
         this->memory.clear();
+
+        triton::intlibs::vexlifter::vex_lift_finilize();
       }
 
 

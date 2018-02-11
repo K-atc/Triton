@@ -436,16 +436,19 @@ void set_expr(vex_expr *insn, PyObject *obj)
 
 bool vex_lift(vex_insns_group *insns_group, unsigned char *insns_bytes, triton::uint64 start_addr, triton::uint64 count)
 {
-    PyObject *global, *func;
+    PyObject *main, *global, *func;
 
-    // Invoke Python Interpreter
-    Py_Initialize();
+    if (!Py_IsInitialized()) {
+        fprintf(stderr, "error: Py_Initialize() must be called beforehand.\n");
+        exit(1);
+    }
 
     // Load Helper Script
     PyRun_SimpleString(script);
 
     // Get ref of function
-    global = PyModule_GetDict(PyImport_ImportModule("__main__"));
+    main = PyImport_ImportModule("__main__");
+    global = PyModule_GetDict(main);
     func = PyDict_GetItemString(global, "Lift");
 
     setvbuf(stdout, NULL, _IONBF, 0);
@@ -574,22 +577,34 @@ bool vex_lift(vex_insns_group *insns_group, unsigned char *insns_bytes, triton::
             }
             Py_DECREF(ans);
         }
-        // Py_DECREF(pArgs);
+        Py_DECREF(pArgs);
         // Py_DECREF(pArg1);
         // Py_DECREF(pArg2);
     }
     else {
-        fprintf(stderr, "ref error\n");
+        fprintf(stderr, "error: There're no handle for lift function.\n");
         return false;
     }
 
-    Py_DECREF(global);
+    Py_DECREF(main);
+    // Py_DECREF(global);
     Py_DECREF(func);
 
-    // Terminate Interpreter
-    // Py_Finalize(); // FIXME: segv occurs!!
-
     return true;
+}
+
+void vex_lift_init(void)
+{
+    // Invoke Python Interpreter
+    if (!Py_IsInitialized()) {
+        Py_Initialize();
+    }
+}
+
+void vex_lift_finilize(void)
+{
+    // Terminate Interpreter
+    Py_Finalize();
 }
 
         }

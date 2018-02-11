@@ -241,6 +241,9 @@ typedef struct {
             void print_vex_expr(vex_expr expr, char* prefix);
             void print_vex_insn(vex_insn insn);
             void print_vex_insns(vex_insns insns);
+
+            void vex_lift_init(void);
+            void vex_lift_finilize(void);
             bool vex_lift(vex_insns_group *insns_group, unsigned char *insns_bytes, triton::uint64 start_addr, triton::uint64 count);
 
             std::string vex_tag_enum_to_str(vex_tag_iex tag);
