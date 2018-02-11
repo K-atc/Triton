@@ -12,6 +12,7 @@
 
 #include <triton/logger.hpp>
 #include <triton/vexLifter.hpp>
+#include <assert.h>
 
 
 /*! \page SMT_Semantics_Supported_page SMT Semantics Supported
@@ -68,43 +69,54 @@ namespace triton {
 
       bool vexSemantics::buildSemantics(triton::arch::Instruction& inst) {
         using namespace triton::intlibs::vexlifter;
-        triton::logger::info("vexSemantics::buildSemantics: type = %s", vex_repr_itype(inst.getType()).c_str());
+        triton::logger::info("vexSemantics::buildSemantics: addr = 0x%x, type = %s", inst.getAddress(), vex_repr_itype(inst.getType()).c_str());
         switch ((triton::uint32) inst.getType()) {
           case vex_itype(Ist_IMark):
-            triton::logger::info("vexSemantics::buildSemantics: Ist_IMark");
-            break;
+            triton::logger::info("vexSemantics::buildSemantics: Ist_IMark"); break;
           case vex_itype(Ist_Exit, Iex_RdTmp):
             this->exit_s(inst); break;
-          case vex_itype(Ist_Jump):
-            this->jump_boring_s(inst); break; // TODO; Ijk_Syscall, etc.
-          case vex_itype(Ist_Put, Iex_Const):
-          case vex_itype(Ist_Put, Iex_RdTmp):
-          case vex_itype(Ist_Store, Iex_RdTmp):
-          case vex_itype(Ist_WrTmp, Iex_Get):
-          case vex_itype(Ist_WrTmp, Iex_RdTmp):
-          case vex_itype(Ist_WrTmp, Iex_Load):
+          case vex_itype(Ist_Jump): // TODO; Ijk_Syscall, etc.
+            this->jump_boring_s(inst); break;
+          case vex_itype(Ist_Put, Iex_Const): // mov_s
+          case vex_itype(Ist_Put, Iex_RdTmp): // mov_s
+          case vex_itype(Ist_Store, Iex_RdTmp): // mov_s
+          case vex_itype(Ist_WrTmp, Iex_Get): // mov_s
+          case vex_itype(Ist_WrTmp, Iex_RdTmp): // mov_s
+          case vex_itype(Ist_WrTmp, Iex_Load): // mov_s
             this->mov_s(inst); break;
-            #if 0
           case vex_itype(Ist_WrTmp, Iex_Unop, Iop_Cast):
-            this->mov_unop_cast_s(inst); break;
-          case vex_itype(Ist_WrTmp, Iex_Binop, Iop_CmpEQ):
-            this->mov_binop_cmpeq_s(inst); break;
+            this->unop_cast_s(inst); break;
+          case vex_itype(Ist_WrTmp, Iex_Unop, Iop_CastU):
+            this->unop_castu_s(inst); break;
           case vex_itype(Ist_WrTmp, Iex_Binop, Iop_Add):
-            this->mov_binop_add_s(inst); break;
+            this->binop_add_s(inst); break;
+          case vex_itype(Ist_WrTmp, Iex_Binop, Iop_Shl):
+            this->binop_shl_s(inst); break;
+#if 0
+          case vex_itype(Ist_WrTmp, Iex_Binop, Iop_CmpEQ):
+            this->binop_cmpeq_s(inst); break;
           case vex_itype(Ist_WrTmp, Iex_Binop, Iop_Sub):
-            this->mov_binop_sub_s(inst); break;
-            #endif
+            this->binop_sub_s(inst); break;
+#endif
           default:
             char msg[128];
-            snprintf(msg, sizeof(msg), "vexSemantics::vexSemantics(): Unknown type 0x%x.", inst.getType());
+            snprintf(msg, sizeof(msg), "vexSemantics::vexSemantics(): Unknown type %s.", triton::intlibs::vexlifter::vex_repr_itype(inst.getType()).c_str());
             throw triton::exceptions::Semantics(msg);
             return false;
+        }
+        // dor debugging
+        for (unsigned int exp_index = 0; exp_index != inst.symbolicExpressions.size(); exp_index++) {
+          auto expr = inst.symbolicExpressions[exp_index];
+          std::cout << "\tSymExpr " << exp_index << ": " << expr << std::endl;
         }
         return true;
       }
 
       void vexSemantics::controlFlow_s(triton::arch::Instruction& inst) {
         auto pc      = triton::arch::OperandWrapper(TRITON_VEX_REG_PC.getParent());
+
+        std::cout << "vexSemantics::controlFlow_s: TRITON_VEX_REG_PC: " << TRITON_VEX_REG_PC << std::endl;
+        std::cout << "vexSemantics::controlFlow_s: pc: " << pc << std::endl;
 
         /* Update instruction address if undefined */
         if (!inst.getAddress())
@@ -120,19 +132,54 @@ namespace triton {
         expr->isTainted = this->taintEngine->setTaintRegister(TRITON_VEX_REG_PC, triton::engines::taint::UNTAINTED);
       }
 
-      void vexSemantics::add_s(triton::arch::Instruction& inst) {
+      // dst = src1 + src2
+      void vexSemantics::binop_add_s(triton::arch::Instruction& inst) {
         auto& dst = inst.operands[0];
-        auto& src = inst.operands[1];
+        auto& src1 = inst.operands[1];
+        auto& src2 = inst.operands[2];
+
+        std::cout << "binop_add_s: src1: " << src1 << std::endl;
+        std::cout << "binop_add_s: src2: " << src2 << std::endl;
+        assert(src1.getSize() == src2.getSize());
 
         /* Create symbolic operands */
-        auto op1 = this->symbolicEngine->buildSymbolicOperand(inst, dst);
-        auto op2 = this->symbolicEngine->buildSymbolicOperand(inst, src);
+        auto op1 = this->symbolicEngine->buildSymbolicOperand(inst, src1);
+        auto op2 = this->symbolicEngine->buildSymbolicOperand(inst, src2);
 
         /* Create the semantics */
         auto node = triton::ast::bvadd(op1, op2);
 
         /* Create symbolic expression */
         auto expr = this->symbolicEngine->createSymbolicExpression(inst, node, dst, "ADD operation");
+
+        /* Spread taint */
+        expr->isTainted = this->taintEngine->taintUnion(dst, src1);
+        expr->isTainted |= this->taintEngine->taintUnion(dst, src2);
+
+        /* Upate the symbolic control flow */
+        this->controlFlow_s(inst);
+      }
+
+      // dst = shl(src1, src2)
+      void vexSemantics::binop_shl_s(triton::arch::Instruction& inst) {
+        auto& dst    = inst.operands[0];
+        auto& src   = inst.operands[1]; // to be shifted
+        auto& src2   = inst.operands[2]; // shift amount
+
+        /* Create symbolic operands */
+        auto op1 = this->symbolicEngine->buildSymbolicOperand(inst, dst);
+        auto op2 = triton::ast::zx(dst.getBitSize() - src2.getBitSize(), this->symbolicEngine->buildSymbolicOperand(inst, src2));
+
+        if (dst.getBitSize() == QWORD_SIZE_BIT)
+          op2 = triton::ast::bvand(op2, triton::ast::bv(QWORD_SIZE_BIT-1, dst.getBitSize()));
+        else
+          op2 = triton::ast::bvand(op2, triton::ast::bv(DWORD_SIZE_BIT-1, dst.getBitSize()));
+
+        /* Create the semantics */
+        auto node = triton::ast::bvshl(op1, op2);
+
+        /* Create symbolic expression */
+        auto expr = this->symbolicEngine->createSymbolicExpression(inst, node, dst, "SHL operation");
 
         /* Spread taint */
         expr->isTainted = this->taintEngine->taintUnion(dst, src);
@@ -192,40 +239,100 @@ namespace triton {
       void vexSemantics::mov_s(triton::arch::Instruction& inst) {
         auto& dst = inst.operands[0];
         auto& src = inst.operands[1];
-        assert(dst.getType() != triton::arch::OP_INVALID);
-        assert(src.getType() != triton::arch::OP_INVALID);
-        // auto reg_dst = triton::arch::Register(vexSpecifications::translatePairIDToRegID(2, 32));
-        // auto reg_src = triton::arch::Register(vexSpecifications::translatePairIDToRegID(1, 32));
-        auto reg_dst = triton::arch::Register(1 * 0x10 + 5);
-        auto reg_src = triton::arch::Register(2 * 0x10 + 5);
-        reg_src.setHigh(4 * 8 - 1);
-        reg_src.setLow(0 * 8);
-        reg_src.setParent(reg_src.getId());
-        reg_dst.setHigh(4 * 8 - 1);
-        reg_dst.setLow(0 * 8);
-        reg_dst.setParent(reg_dst.getId());
-        src = triton::arch::OperandWrapper(reg_src);
-        dst = triton::arch::OperandWrapper(reg_dst);
-        std::cout << "src: #" << reg_src.getId() << "<" << reg_src.getId() << " " << src << std::endl;
-        std::cout << "dst: #" << reg_dst.getId() << "<" << reg_dst.getId() << " " << dst << std::endl;
+
+#if 0
+        if (src.getType() == triton::arch::OP_REG) {
+          std::cout << "mov_s: src: #" << std::hex << src.getRegister().getId() << "<" << src.getRegister().getParent().getId() << " " << src.getRegister() << std::endl;
+        }
+        else {
+          std::cout << "mov_s: src: " << src << std::endl;
+        }
+        if (dst.getType() == triton::arch::OP_REG) {
+          std::cout << "mov_s: dst: #" << std::hex << dst.getRegister().getId() << "<" << dst.getRegister().getParent().getId() << " " << dst.getRegister() << std::endl;
+        }
+        else {
+          std::cout << "mov_s: dst: " << dst << std::endl;
+        }
+#endif
 
         /* Create the semantics */
-        triton::logger::info("Create the semantics");
+        // triton::logger::info("Create the semantics");
         auto node = this->symbolicEngine->buildSymbolicOperand(inst, src);
 
         /* Create symbolic expression */
-        triton::logger::info("Create symbolic expression");
+        // triton::logger::info("Create symbolic expression");
         auto expr = this->symbolicEngine->createSymbolicExpression(inst, node, dst, "MOV operation");
+        std::cout << expr << std::endl;
 
         /* Spread taint */
-        triton::logger::info("Spread taint");
+        // triton::logger::info("Spread taint");
         expr->isTainted = this->taintEngine->taintAssignment(dst, src);
+
+        /* Upate the symbolic control flow */
+        // triton::logger::info("Upate the symbolic control flow");
+        this->controlFlow_s(inst);
+      }
+
+      void vexSemantics::unop_cast_s(triton::arch::Instruction& inst) {
+        auto& dst = inst.operands[0];
+        auto& src1 = inst.operands[1];
+
+        auto castFromSize = src1.getBitSize();
+        auto castToSize = dst.getBitSize();
+        std::cout << "unop_cast_s: " << dst << " = " << castFromSize << "to" << castToSize << "(" << src1 << ")" << std::endl;
+
+        auto op1 = this->symbolicEngine->buildSymbolicOperand(inst, src1);
+
+        /* Create the semantics */
+        triton::ast::AbstractNode* node;
+        if (castFromSize <= castToSize){ // extend
+          node = triton::ast::sx(castToSize - castFromSize, triton::ast::extract(castFromSize-1, 0, op1)); // padding with sign bit
+        }
+        else { // shorten
+          node = triton::ast::concat(
+            triton::ast::extract(castFromSize-1, castFromSize-1, op1), // MSB (sign bit)
+            triton::ast::extract(castToSize-2, 0, op1)
+            );
+        }
+
+        /* Create symbolic expression */
+        auto expr = this->symbolicEngine->createSymbolicExpression(inst, node, dst, "CAST operation");
+
+        /* Spread taint */
+        expr->isTainted = this->taintEngine->taintAssignment(dst, src1);
 
         /* Upate the symbolic control flow */
         this->controlFlow_s(inst);
       }
 
+      void vexSemantics::unop_castu_s(triton::arch::Instruction& inst) {
+        auto& dst = inst.operands[0];
+        auto& src1 = inst.operands[1];
 
+        auto castFromSize = src1.getBitSize();
+        auto castToSize = dst.getBitSize();
+        std::cout << "unop_cast_s: " << dst << " = " << castFromSize << "to" << castToSize << "(" << src1 << ")" << std::endl;
+
+        auto op1 = this->symbolicEngine->buildSymbolicOperand(inst, src1);
+
+        /* Create the semantics */
+        triton::ast::AbstractNode* node;
+        if (castFromSize <= castToSize){ // extend
+          node = triton::ast::zx(castToSize - castFromSize, triton::ast::extract(castFromSize-1, 0, op1)); // padding with zero
+        }
+        else { // shorten
+          node = triton::ast::extract(castToSize-1, 0, op1);
+        }
+
+        /* Create symbolic expression */
+        auto expr = this->symbolicEngine->createSymbolicExpression(inst, node, dst, "CAST operation");
+
+        /* Spread taint */
+        expr->isTainted = this->taintEngine->taintAssignment(dst, src1);
+
+        /* Upate the symbolic control flow */
+        this->controlFlow_s(inst);
+      }
 
     }; /* vex namespace */
   }; /* arch namespace */

@@ -230,6 +230,14 @@ typedef struct {
 
             vex_abst_iop vex_iop(vex_tag_iop tag);
 
+            std::string vex_tag_enum_to_str(vex_tag_ist tag);
+            std::string vex_tag_enum_to_str(vex_tag_iex tag);
+            std::string vex_tag_enum_to_str(vex_ir_ity tag);
+            std::string vex_tag_enum_to_str(vex_ir_ijk tag);
+            std::string vex_tag_enum_to_str(vex_ir_endness tag);
+            std::string vex_tag_enum_to_str(vex_tag_ico tag);
+            std::string vex_tag_enum_to_str(vex_abst_iop tag);
+
             void print_vex_expr(vex_expr expr, char* prefix);
             void print_vex_insn(vex_insn insn);
             void print_vex_insns(vex_insns insns);

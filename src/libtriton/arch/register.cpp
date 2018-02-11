@@ -10,7 +10,7 @@
 #include <triton/register.hpp>
 #include <triton/registerSpecification.hpp>
 
-
+#include <triton/logger.hpp>
 
 namespace triton {
   namespace arch {
@@ -25,6 +25,8 @@ namespace triton {
         this->clear();
         return;
       }
+
+      // triton::logger::info("Register::Register(regId=0x%x)", regId);
 
       this->setup(regId);
       this->immutable            = false;
@@ -79,8 +81,10 @@ namespace triton {
       triton::arch::RegisterSpecification regInfo;
 
       this->id = regId;
-      if (!triton::api.isRegisterValid(regId))
+      if (!triton::api.isRegisterValid(regId)) {
         this->id = triton::arch::INVALID_REGISTER_ID;
+        throw triton::exceptions::Register("Register::setup(): triton::api.isRegisterValid is false");
+      }
 
       regInfo      = triton::api.getRegisterSpecification(this->id);
       this->name   = regInfo.getName();

@@ -114,6 +114,9 @@ namespace triton {
         //! IRs (e.g. Vex IR)
         std::vector<triton::arch::Instruction> ir;
 
+        // //! Operator Parameters (used in arch::vex)
+        // std::vector<triton::uint32> opParams;
+
         //! Constructor.
         Instruction();
 

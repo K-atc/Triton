@@ -55,12 +55,6 @@ namespace triton {
 
           //! Returns all specifications about a register from its ID according to the arch (32 or 64-bits).
           triton::arch::RegisterSpecification getVexRegisterSpecification(triton::uint32 arch, triton::uint32 regId) const;
-
-          triton::uint32 translatePairIDToRegID(triton::uint32 offset, triton::uint32 size) const;
-          triton::uint32 translatePairIDToRegID(std::pair<triton::uint32, triton::uint32> pairId) const;
-          std::pair<triton::uint32, triton::uint32> translateRegIDToPairID(triton::uint32 regId) const;
-          triton::uint32 translateTmpToRegID(triton::uint32 tmp);
-          triton::uint32 translateRegIDToTmp(triton::uint32 regId);
       };
 
 
@@ -69,9 +63,12 @@ namespace triton {
         ID_REG_INVALID = 0, //!< invalid = 0
 
         // TODO
+        ID_REG_RIP = 184,
+
+        ID_REG_TMP = 0x1000,
 
         /* Must be the last item */
-        ID_REG_LAST_ITEM //!< must be the last item
+        ID_REG_LAST_ITEM = 0x1100 //!< must be the last item
       };
 
       //! The list of opcodes. (NOT USED)
@@ -83,6 +80,12 @@ namespace triton {
         /* Must be the last item */
         ID_INST_LAST_ITEM //!< must be the last item
       };
+
+      triton::uint32 translatePairIDToRegID(triton::uint32 offset, triton::uint32 size);
+      triton::uint32 translatePairIDToRegID(std::pair<triton::uint32, triton::uint32> pairId);
+      std::pair<triton::uint32, triton::uint32> translateRegIDToPairID(triton::uint32 regId);
+      triton::uint32 translateTmpToRegID(triton::uint32 tmp, triton::uint32 size);
+      triton::uint32 translateRegIDToTmp(triton::uint32 regId);
 
     /*! @} End of vex namespace */
     };

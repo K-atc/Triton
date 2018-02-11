@@ -334,6 +334,13 @@ namespace triton {
       triton::usize SymbolicEngine::getSymbolicRegisterId(const triton::arch::Register& reg) const {
         triton::uint32 parentId = reg.getParent().getId();
 
+        /* index check */
+        if (parentId > this->numberOfRegisters) {
+          char msg[128];
+          snprintf(msg, sizeof(msg), "SymbolicEngine::SymbolicEngine::getSymbolicRegisterId(parentId=0x%x): no sush parent register", parentId);
+          throw triton::exceptions::SymbolicEngine(msg);
+        }
+
         if (!this->architecture->isRegisterValid(parentId))
           return triton::engines::symbolic::UNSET;
 
@@ -655,6 +662,7 @@ namespace triton {
           /* Create the symbolic expression */
           SymbolicExpression* se = this->newSymbolicExpression(tmp, triton::engines::symbolic::REG);
           se->setOriginRegister(reg);
+          std::cout << "SymbolicEngine::convertRegisterToSymbolicVariable: " << *se << std::endl;
           this->symbolicReg[parentId] = se->getId();
         }
 
@@ -801,7 +809,8 @@ namespace triton {
         triton::uint32 high           = reg.getHigh();
         triton::uint32 low            = reg.getLow();
 
-        triton::logger::info("SymbolicEngine::buildSymbolicRegister: bvSize = %d, high = %d, low = %d", bvSize, high, low);
+        // triton::logger::info("SymbolicEngine::buildSymbolicRegister: symReg = %d, bvSize = %d, high = %d, low = %d", symReg, bvSize, high, low);
+        // std::cout << "\treg: " << reg << std::endl;
 
         /* Check if the register is already symbolic */
         if (symReg != triton::engines::symbolic::UNSET)
@@ -903,9 +912,11 @@ namespace triton {
         triton::uint32 regSize                    = reg.getSize();
         triton::arch::Register parentReg          = reg.getParent();
 
-        std::ostringstream str;
-        str << reg;
-        triton::logger::info("SymbolicEngine::createSymbolicRegisterExpression: %s", str.str().c_str());
+        // std::ostringstream str;
+        // str << std::endl;
+        // str << "\tnode: " << node << std::endl;
+        // str << "\treg: " << reg;
+        // triton::logger::info("SymbolicEngine::createSymbolicRegisterExpression: %s", str.str().c_str());
 
         if (this->architecture->isFlag(reg))
           throw triton::exceptions::SymbolicEngine("SymbolicEngine::createSymbolicRegisterExpression(): The register cannot be a flag.");
@@ -992,9 +1003,10 @@ namespace triton {
         triton::uint32 id               = parent.getId();
 
         /* We can assign an expression only on parent registers */
-        std::cout << "reg: " << reg << std::endl;
-        std::cout << "parent: " << parent << std::endl;
-        triton::logger::info("reg.getId() = 0x%x,  parent.getId() = 0x%x", reg.getId(), parent.getId());
+        // std::cout << "SymbolicEngine::assignSymbolicExpressionToRegister:" << std::endl;
+        // std::cout << "\tse: " << *se << std::endl;
+        // std::cout << "\treg: " << reg << std::endl;
+        // std::cout << "\tparent: " << parent << std::endl;
         if (reg.getId() != parent.getId())
           throw triton::exceptions::SymbolicEngine("SymbolicEngine::assignSymbolicExpressionToRegister(): We can assign an expression only on parent registers.");
 

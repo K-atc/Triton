@@ -69,6 +69,7 @@ namespace triton {
       this->type                = other.type;
       this->writtenRegisters    = other.writtenRegisters;
       this->ir                  = other.ir;
+      // this->opParams            = other.opParams;
 
       std::memcpy(this->opcodes, other.opcodes, sizeof(this->opcodes));
 

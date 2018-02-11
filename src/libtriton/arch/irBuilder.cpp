@@ -67,22 +67,22 @@ namespace triton {
       bool ret = false;
 
       /* Stage 1 - Update the context memory */
-      triton::logger::info("----------------");
-      triton::logger::info("Stage 1 - Update the context memory");
+      // triton::logger::info("----------------");
+      // triton::logger::info("Stage 1 - Update the context memory");
       std::list<triton::arch::MemoryAccess>::iterator it1;
       for (it1 = inst.memoryAccess.begin(); it1 != inst.memoryAccess.end(); it1++) {
         this->architecture->setConcreteMemoryValue(*it1);
       }
 
       /* Stage 2 - Update the context register */
-      triton::logger::info("Stage 2 - Update the context register");
+      // triton::logger::info("Stage 2 - Update the context register");
       std::map<triton::uint32, triton::arch::Register>::iterator it2;
       for (it2 = inst.registerState.begin(); it2 != inst.registerState.end(); it2++) {
         this->architecture->setConcreteRegisterValue(it2->second);
       }
 
       /* Stage 3 - Initialize the target address of memory operands */
-      triton::logger::info("Stage 3 - Initialize the target address of memory operands");
+      // triton::logger::info("Stage 3 - Initialize the target address of memory operands");
       std::vector<triton::arch::OperandWrapper>::iterator it3;
       for (it3 = inst.operands.begin(); it3 != inst.operands.end(); it3++) {
         if (it3->getType() == triton::arch::OP_MEM) {
@@ -91,11 +91,11 @@ namespace triton {
       }
 
       /* Pre IR processing */
-      triton::logger::info("Pre IR processing");
+      // triton::logger::info("Pre IR processing");
       this->preIrInit(inst);
 
       /* Processing */
-      triton::logger::info("Processing");
+      // triton::logger::info("Processing");
       switch (this->architecture->getArchitecture()) {
         case triton::arch::ARCH_X86:
         case triton::arch::ARCH_X86_64:
@@ -109,7 +109,7 @@ namespace triton {
       }
 
       /* Post IR processing */
-      triton::logger::info("Post IR processing");
+      // triton::logger::info("Post IR processing");
       this->postIrInit(inst);
 
       return ret;

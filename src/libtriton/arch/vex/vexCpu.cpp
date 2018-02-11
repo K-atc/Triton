@@ -49,8 +49,10 @@ namespace triton {
 
       void vexCpu::init(void) {
         /* Define registers ========================================================= */
-        triton::arch::vex::vex_regs    = triton::arch::Register();
-        triton::arch::vex::vex_tmp     = triton::arch::Register();
+        triton::arch::vex::vex_regs    = triton::arch::Register(); // not used
+        triton::arch::vex::vex_tmp     = triton::arch::Register(); // not used
+        triton::arch::vex::vex_reg_pc  = triton::arch::Register(triton::arch::vex::translatePairIDToRegID(triton::arch::vex::ID_REG_RIP, 64)); // FIXME: use archinfo
+
         // for (int i = 0; i < 8 * 100) {
         //     triton::arch::vex::vex_regs[i] = triton::arch::Register(i, 0x00, triton::arch::IMMUTABLE_REGISTER);
         // }
@@ -136,6 +138,7 @@ namespace triton {
 
       triton::uint32 vexCpu::numberOfRegisters(void) const {
         return triton::arch::vex::ID_REG_LAST_ITEM;
+        // return 0x11000; // FIXME (used by SymbolicEngine::SymbolicEngine)
       }
 
 
@@ -204,7 +207,7 @@ namespace triton {
             case triton::intlibs::vexlifter::Ity_I1: return 1;
             case triton::intlibs::vexlifter::Ity_I16: return 16;
             case triton::intlibs::vexlifter::Ity_I32: return 32;
-            case triton::intlibs::vexlifter::Ity_I64: return 54;
+            case triton::intlibs::vexlifter::Ity_I64: return 64;
             case triton::intlibs::vexlifter::Ity_I8: return 8;
             case triton::intlibs::vexlifter::Ity_V128: return 128;
             case triton::intlibs::vexlifter::Ity_V256: return 256;
@@ -215,14 +218,15 @@ namespace triton {
       triton::uint32 vexCpu::translateIexToRegId(triton::intlibs::vexlifter::vex_expr expr) {
         switch (expr.tag) {
           case triton::intlibs::vexlifter::Iex_RdTmp:
-            return vexSpecifications::translateTmpToRegID(expr.tmp);
+            return triton::arch::vex::translateTmpToRegID(expr.tmp, expr.result_size);
             break;
-          case triton::intlibs::vexlifter::Iex_Get:
+          case triton::intlibs::vexlifter::Iex_Get: {
+
             return translatePairIDToRegID(
                 std::make_pair(expr.offset, translateVexTyToSize(expr.ty))
               );
             break;
-          // TODO: memory
+          }
           default:
             puts("=== [errored] ===");
             triton::intlibs::vexlifter::print_vex_expr(expr, (char *) "expr.");
@@ -238,6 +242,8 @@ namespace triton {
         ) {
         switch (expr.tag) {
           case triton::intlibs::vexlifter::Iex_Get: {
+            // std::cout << "case Ist_Get (" <<
+            //   triton::intlibs::vexlifter::vex_tag_enum_to_str(expr.ty) << "): "<< std::endl;
             return
               triton::arch::OperandWrapper(
                 inst.getRegisterState(
@@ -250,7 +256,7 @@ namespace triton {
           case triton::intlibs::vexlifter::Iex_Const: {
             return
               triton::arch::OperandWrapper(
-                triton::arch::Immediate(expr.con, expr.result_size)
+                triton::arch::Immediate(expr.con, expr.result_size / BYTE_SIZE_BIT)
               )
             ;
           } // case iex_Const
@@ -258,7 +264,7 @@ namespace triton {
             return
               triton::arch::OperandWrapper(
                 inst.getRegisterState(
-                  vexSpecifications::translateTmpToRegID(expr.tmp)
+                  triton::arch::vex::translateTmpToRegID(expr.tmp, expr.result_size)
                 )
               )
             ;
@@ -282,16 +288,18 @@ namespace triton {
               }
               case triton::intlibs::vexlifter::Iex_Const: {
                 // TODO: endness
-                return triton::arch::OperandWrapper(triton::arch::Immediate(data.addr.con, data.result_size));
+                triton::logger::info("vexCpu::generateOperandWrapperFromExpr: case Iex_Const");
+                return triton::arch::OperandWrapper(triton::arch::Immediate(data.addr.con, data.result_size / BYTE_SIZE_BIT));
               }
               case triton::intlibs::vexlifter::Iex_RdTmp: {
+                triton::logger::info("vexCpu::generateOperandWrapperFromExpr: case Iex_RdTmp");
                 triton::arch::MemoryAccess mem;
 
                 /* Set the size of the memory access */
-                mem.setPair(std::make_pair(((data.result_size * BYTE_SIZE_BIT) - 1), 0));
+                mem.setPair(std::make_pair(((data.result_size) - 1), 0));
 
                 /* LEA if exists */
-                triton::arch::Register base(vexSpecifications::translateTmpToRegID(data.addr.tmp));
+                triton::arch::Register base(triton::arch::vex::translateTmpToRegID(data.addr.tmp, data.result_size));
 
                 /* Specify that LEA contains a PC relative */
                 if (base.getId() == TRITON_VEX_REG_PC.getId())
@@ -324,6 +332,8 @@ namespace triton {
           if (baseInst.getOpcodes() != nullptr && baseInst.getSize() > 0) {
             /* Lift native inst to VexIR */
             vex_lift(&res, (unsigned char*) baseInst.getOpcodes(), baseInst.getAddress(), baseInst.getSize());
+            if (res.find(address) == res.end())
+              throw triton::exceptions::Disassembly("vexCpu::disassembly(): failed to lift");
             vex_insns = res[address];
           }
           else {
@@ -336,13 +346,15 @@ namespace triton {
           vex_insns = lifted_vex_insns[address];
         }
 
+        baseInst.setDisassembly(vex_insns[0].disasm);
+
         std::vector<triton::arch::Instruction> insts;
         for (auto &vex_insn : vex_insns) {
 
           triton::arch::Instruction inst;
 
-          if (!vex_insn.disasm.empty()) {
-            inst.setDisassembly(vex_insn.disasm);
+          if (!vex_insn.full.empty()) {
+            inst.setDisassembly(vex_insn.full);
           }
 
           /* Refine the size according with native instruction bytes size */
@@ -391,10 +403,10 @@ namespace triton {
               triton::arch::MemoryAccess mem;
 
               /* Set the size of the memory access */
-              mem.setPair(std::make_pair(((vex_insn.data.result_size * BYTE_SIZE_BIT) - 1), 0));
+              mem.setPair(std::make_pair(((vex_insn.data.result_size) - 1), 0));
 
               /* LEA if exists */
-              triton::arch::Register base(vexSpecifications::translateTmpToRegID(vex_insn.addr_expr.tmp));
+              triton::arch::Register base(triton::arch::vex::translateTmpToRegID(vex_insn.addr_expr.tmp, vex_insn.data.result_size));
 
               /* Specify that LEA contains a PC relative */
               if (base.getId() == TRITON_VEX_REG_PC.getId())
@@ -408,11 +420,8 @@ namespace triton {
               break;
             } // case Ist_Store
             case triton::intlibs::vexlifter::Ist_WrTmp: {
-              auto reg = triton::arch::Register(inst.getRegisterState(vexSpecifications::translateTmpToRegID(vex_insn.tmp)));
-              reg.setLow(0);
-              reg.setHigh(vex_insn.data.result_size * BYTE_SIZE_BIT - 1);
-              reg.setParent(reg.getId()); // FIXME
-              std::cout << "case triton::intlibs::vexlifter::Ist_WrTmp: " << reg << std::endl;
+              auto reg = triton::arch::Register(inst.getRegisterState(triton::arch::vex::translateTmpToRegID(vex_insn.tmp, vex_insn.data.result_size)));
+              // std::cout << "case Ist_WrTmp: " << reg << std::endl;
               inst.operands.push_back(triton::arch::OperandWrapper(reg));
               break;
             } // case Ist_WrTmp
@@ -434,7 +443,7 @@ namespace triton {
               // push src const
               inst.operands.push_back(
                 triton::arch::OperandWrapper(
-                  triton::arch::Immediate(vex_insn.dst.value, vex_insn.dst.size)
+                  triton::arch::Immediate(vex_insn.dst.value, vex_insn.dst.size / BYTE_SIZE_BIT)
                 )
               );
               break;
@@ -443,7 +452,7 @@ namespace triton {
               break;
           }
 
-          // push src registers described in data
+          // push src operands described in data
           if (vex_insn.data.tag != triton::intlibs::vexlifter::Iex_Invalid &&
               vex_insn.data.tag != triton::intlibs::vexlifter::Iex_Unop &&
               vex_insn.data.tag != triton::intlibs::vexlifter::Iex_Binop &&
@@ -460,6 +469,14 @@ namespace triton {
             inst.operands.push_back(generateOperandWrapperFromExpr(vex_insn.data.args[n], inst));
           } // for ( args )
 
+          /* for debugging */
+          for (unsigned int op_index = 0; op_index != inst.operands.size(); op_index++) {
+            std::cout << "\tOperand " << op_index << ": " << inst.operands[op_index] << std::endl;
+            if (inst.operands[op_index].getType() == OP_MEM) {
+              std::cout << "\t   base  : " << inst.operands[op_index].getMemory().getBaseRegister() << std::endl;
+            }
+          }
+
           /* Set branch */
           if (vex_insn.tag == triton::intlibs::vexlifter::Ist_Jump)
             inst.setBranch(true);
@@ -469,7 +486,7 @@ namespace triton {
               vex_insn.jumpkind == triton::intlibs::vexlifter::Ijk_Ret)
             inst.setControlFlow(true);
 
-          triton::logger::info("Done: addr=0x%x, type=0x%x: %s", inst.getAddress(), inst.getType(), vex_insn.full.c_str());
+          // triton::logger::info("Done: addr=0x%x, type=0x%x: %s", inst.getAddress(), inst.getType(), vex_insn.full.c_str());
           insts.push_back(inst);
         } // for ( insn )
 
@@ -590,8 +607,8 @@ namespace triton {
       void vexCpu::setConcreteRegisterValue(const triton::arch::Register& reg) {
         triton::uint512 value = reg.getConcreteValue();
 
-        triton::logger::info("vexCpu::setConcreteRegisterValue: reg.getId() = 0x%x", reg.getId());
-        triton::logger::info("vexCpu::setConcreteRegisterValue: reg.getSize() = %d", reg.getSize());
+        // triton::logger::info("vexCpu::setConcreteRegisterValue: reg.getId() = 0x%x", reg.getId());
+        // triton::logger::info("vexCpu::setConcreteRegisterValue: reg.getSize() = %d", reg.getSize());
         triton::uint32 offset = translateRegIDToPairID(reg.getId()).first;
         switch (reg.getSize()) {
           case BYTE_SIZE:     this->cc_regs[offset]  = value.convert_to<triton::uint8>(); break;
