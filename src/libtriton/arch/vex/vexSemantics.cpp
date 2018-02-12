@@ -70,6 +70,15 @@ namespace triton {
       bool vexSemantics::buildSemantics(triton::arch::Instruction& inst) {
         using namespace triton::intlibs::vexlifter;
         triton::logger::info("vexSemantics::buildSemantics: addr = 0x%x, type = %s", inst.getAddress(), vex_repr_itype(inst.getType()).c_str());
+
+        /* for debugging */
+        for (unsigned int op_index = 0; op_index != inst.operands.size(); op_index++) {
+          std::cout << "\tOperand " << op_index << ": " << inst.operands[op_index] << std::endl;
+          if (inst.operands[op_index].getType() == OP_MEM) {
+            std::cout << "\t   base  : " << inst.operands[op_index].getMemory().getBaseRegister() << std::endl;
+          }
+        }
+
         switch ((triton::uint32) inst.getType()) {
           case vex_itype(Ist_IMark):
             // triton::logger::info("vexSemantics::buildSemantics: Ist_IMark"); break;

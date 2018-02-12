@@ -821,7 +821,7 @@ namespace triton {
         else
           op = triton::ast::bv(this->architecture->getConcreteRegisterValue(reg), bvSize);
 
-        std::cout << "\top: " << op << std::endl;
+        // std::cout << "\top: " << op << std::endl;
         return op;
       }
 

@@ -70,13 +70,13 @@ namespace triton {
       /* Stage 1 - Update the context memory */
       // triton::logger::info("----------------");
 
-      /* for debugging */
-      for (unsigned int op_index = 0; op_index != inst.operands.size(); op_index++) {
-        std::cout << "\tOperand " << op_index << ": " << inst.operands[op_index] << std::endl;
-        if (inst.operands[op_index].getType() == OP_MEM) {
-          std::cout << "\t   base  : " << inst.operands[op_index].getMemory().getBaseRegister() << std::endl;
-        }
-      }
+      // /* for debugging */
+      // for (unsigned int op_index = 0; op_index != inst.operands.size(); op_index++) {
+      //   std::cout << "\tOperand " << op_index << ": " << inst.operands[op_index] << std::endl;
+      //   if (inst.operands[op_index].getType() == OP_MEM) {
+      //     std::cout << "\t   base  : " << inst.operands[op_index].getMemory().getBaseRegister() << std::endl;
+      //   }
+      // }
 
       // triton::logger::info("Stage 1 - Update the context memory");
       std::list<triton::arch::MemoryAccess>::iterator it1;

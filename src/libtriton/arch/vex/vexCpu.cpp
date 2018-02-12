@@ -316,8 +316,8 @@ namespace triton {
 
                 /* LEA if exists */
                 triton::arch::Register base(triton::arch::vex::translateTmpToRegID(data.addr.tmp, data.addr.result_size));
-                triton::arch::Register index(ID_REG_INVALID);
-                triton::arch::Register seg(ID_REG_INVALID);
+                triton::arch::Register index(ID_REG_INVALID); // must be invalid, or a bug occurs in SymbolicEngine::initLeaAst
+                triton::arch::Register seg(ID_REG_INVALID); // must be invalid, or ...
 
                 /* Specify that LEA contains a PC relative */
                 if (base.getId() == TRITON_VEX_REG_PC.getId())
@@ -393,10 +393,12 @@ namespace triton {
           /* Set Instruction Address */
           inst.setAddress(address);
 
+#if 0
           triton::logger::info("Pending: addr=0x%x, type=%s(0x%x): %s",
             address, triton::intlibs::vexlifter::vex_repr_itype(inst.getType()).c_str(), inst.getType(), vex_insn.full.c_str());
+#endif
 
-          // TODO: Set Context
+          // TODO: Set Context (writtenRegisters etc.)
 
           /* Check lift error */
           if (vex_insn.tag == triton::intlibs::vexlifter::Ist_Invalid) {
@@ -493,13 +495,13 @@ namespace triton {
             inst.operands.push_back(generateOperandWrapperFromExpr(vex_insn.data.args[n], inst));
           } // for ( args )
 
-          /* for debugging */
-          for (unsigned int op_index = 0; op_index != inst.operands.size(); op_index++) {
-            std::cout << "\tOperand " << op_index << ": " << inst.operands[op_index] << std::endl;
-            if (inst.operands[op_index].getType() == OP_MEM) {
-              std::cout << "\t   base  : " << inst.operands[op_index].getMemory().getBaseRegister() << std::endl;
-            }
-          }
+          // /* for debugging */
+          // for (unsigned int op_index = 0; op_index != inst.operands.size(); op_index++) {
+          //   std::cout << "\tOperand " << op_index << ": " << inst.operands[op_index] << std::endl;
+          //   if (inst.operands[op_index].getType() == OP_MEM) {
+          //     std::cout << "\t   base  : " << inst.operands[op_index].getMemory().getBaseRegister() << std::endl;
+          //   }
+          // }
 
           /* Set branch */
           if (vex_insn.tag == triton::intlibs::vexlifter::Ist_Jump)
