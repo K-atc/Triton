@@ -811,6 +811,7 @@ namespace triton {
 
         // triton::logger::info("SymbolicEngine::buildSymbolicRegister: symReg = %d, bvSize = %d, high = %d, low = %d", symReg, bvSize, high, low);
         // std::cout << "\treg: " << reg << std::endl;
+        assert(bvSize % BYTE_SIZE_BIT == 0);
 
         /* Check if the register is already symbolic */
         if (symReg != triton::engines::symbolic::UNSET)
@@ -820,6 +821,7 @@ namespace triton {
         else
           op = triton::ast::bv(this->architecture->getConcreteRegisterValue(reg), bvSize);
 
+        std::cout << "\top: " << op << std::endl;
         return op;
       }
 
@@ -924,37 +926,43 @@ namespace triton {
         if (regSize == BYTE_SIZE || regSize == WORD_SIZE)
           origReg = this->buildSymbolicRegister(parentReg);
 
-        switch (regSize) {
-          case BYTE_SIZE:
-            if (reg.getLow() == 0) {
-              finalExpr = triton::ast::concat(triton::ast::extract((this->architecture->registerBitSize() - 1), BYTE_SIZE_BIT, origReg), node);
-            }
-            else {
-              finalExpr = triton::ast::concat(
-                            triton::ast::extract((this->architecture->registerBitSize() - 1), WORD_SIZE_BIT, origReg),
-                            triton::ast::concat(node, triton::ast::extract((BYTE_SIZE_BIT - 1), 0, origReg))
-                          );
-            }
-            break;
-
-          case WORD_SIZE:
-            finalExpr = triton::ast::concat(triton::ast::extract((this->architecture->registerBitSize() - 1), WORD_SIZE_BIT, origReg), node);
-            break;
-
-          case DWORD_SIZE:
-            /* In AMD64, if a reg32 is written, it clears the 32-bit MSB of the corresponding register (Thx Wisk!) */
-            if (this->architecture->getArchitecture() == triton::arch::ARCH_X86_64) {
-              finalExpr = triton::ast::zx(DWORD_SIZE_BIT, node);
+        // triton::logger::info("SymbolicEngine::createSymbolicRegisterExpression(): regSize = %d", regSize);
+        // if (this->architecture->getArchitecture() == triton::arch::ARCH_VEX) {
+        //   finalExpr = node;
+        // }
+        // else {
+          switch (regSize) {
+            case BYTE_SIZE:
+              if (reg.getLow() == 0) {
+                  finalExpr = triton::ast::concat(triton::ast::extract((this->architecture->registerBitSize() - 1), BYTE_SIZE_BIT, origReg), node);
+              }
+              else {
+                  finalExpr = triton::ast::concat(
+                                triton::ast::extract((this->architecture->registerBitSize() - 1), WORD_SIZE_BIT, origReg),
+                                triton::ast::concat(node, triton::ast::extract((BYTE_SIZE_BIT - 1), 0, origReg))
+                              );
+              }
               break;
-            }
 
-          case QWORD_SIZE:
-          case DQWORD_SIZE:
-          case QQWORD_SIZE:
-          case DQQWORD_SIZE:
-            finalExpr = triton::ast::zx(parentReg.getBitSize() - node->getBitvectorSize(), node);
-            break;
-        }
+            case WORD_SIZE:
+              finalExpr = triton::ast::concat(triton::ast::extract((this->architecture->registerBitSize() - 1), WORD_SIZE_BIT, origReg), node);
+              break;
+
+            case DWORD_SIZE:
+              /* In AMD64, if a reg32 is written, it clears the 32-bit MSB of the corresponding register (Thx Wisk!) */
+              if (this->architecture->getArchitecture() == triton::arch::ARCH_X86_64) {
+                finalExpr = triton::ast::zx(DWORD_SIZE_BIT, node);
+                break;
+              }
+
+            case QWORD_SIZE:
+            case DQWORD_SIZE:
+            case QQWORD_SIZE:
+            case DQQWORD_SIZE:
+              finalExpr = triton::ast::zx(parentReg.getBitSize() - node->getBitvectorSize(), node);
+              break;
+          }
+        // }
 
         reg.setConcreteValue(node->evaluate());
         parentReg.setConcreteValue(finalExpr->evaluate());
@@ -1003,16 +1011,21 @@ namespace triton {
         triton::uint32 id               = parent.getId();
 
         /* We can assign an expression only on parent registers */
-        std::cout << "SymbolicEngine::assignSymbolicExpressionToRegister:" << std::endl;
-        std::cout << "\tse: " << *se << std::endl;
-        std::cout << "\treg: " << reg << std::endl;
-        std::cout << "\tparent: " << parent << std::endl;
-        if (reg.getId() != parent.getId())
+        if (reg.getId() != parent.getId()) {
+          std::cout << "SymbolicEngine::assignSymbolicExpressionToRegister:" << std::endl;
+          std::cout << "\tse: " << *se << std::endl;
+          std::cout << "\treg: " << reg << std::endl;
+          std::cout << "\tparent: " << parent << std::endl;
           throw triton::exceptions::SymbolicEngine("SymbolicEngine::assignSymbolicExpressionToRegister(): We can assign an expression only on parent registers.");
+        }
 
         /* Check if the size of the symbolic expression is equal to the target register */
-        if (node->getBitvectorSize() != reg.getBitSize())
+        if (node->getBitvectorSize() != reg.getBitSize()) {
+          std::cout << "SymbolicEngine::assignSymbolicExpressionToRegister:" << std::endl;
+          std::cout << "\tse: " << *se << std::endl;
+          std::cout << "\treg: " << reg << std::endl;
           throw triton::exceptions::SymbolicEngine("SymbolicEngine::assignSymbolicExpressionToRegister(): The size of the symbolic expression is not equal to the target register.");
+        }
 
         se->setKind(triton::engines::symbolic::REG);
         se->setOriginRegister(reg);

@@ -44,52 +44,48 @@ namespace triton {
         if (arch != triton::arch::ARCH_VEX)
           return ret;
 
-        auto pairId = translateRegIDToPairID(regId);
-        triton::uint32 offset = pairId.first;
-        triton::uint32 bitSize = pairId.second;
+        // triton::logger::info("vexSpecifications::getVexRegisterSpecification: regId = 0x%x", regId);
         // triton::logger::info("vexSpecifications::getVexRegisterSpecification: regId = 0x%x, offset=0x%x, size=%d", regId, offset, bitSize);
-
-#if 0 // NEEDLESS
-        switch (offset) {
-          case triton::arch::vex::ID_REG_RIP:
-            ret.setName("rip");
-            ret.setHigh(QWORD_SIZE_BIT-1);
-            ret.setLow(0);
-            ret.setParentId(regId);
-            return ret;
-          // TODO
-        }
-#endif
 
         char name[32] = "";
         if (regId < ID_REG_TMP) { // a query for parent registers
-          snprintf(name, sizeof(name), "reg(offset=%d)", offset);
+          snprintf(name, sizeof(name), "reg(offset=%d)", regId);
           ret.setName(std::string(name));
           ret.setHigh(QWORD_SIZE_BIT - 1); // FIXME: 
           ret.setLow(0);
-          ret.setParentId(regId); // refference to self
+          ret.setParentId(regId); // reference to self
         }
         else if (ID_REG_TMP <= regId && regId < ID_REG_LAST_ITEM) { // a query for tmp
+          // auto pairId = translateRegIDToTmp(regId);
+          // triton::uint32 tmpId = pairId.first;
+          // triton::uint32 bitSize = pairId.second;
+          // assert(bitSize % BYTE_SIZE_BIT == 0);
+
           snprintf(name, sizeof(name), "t%d", regId - ID_REG_TMP);
           ret.setName(std::string(name));
-          ret.setHigh(QWORD_SIZE_BIT - 1); // FIXME: 
+          ret.setHigh(QWORD_SIZE_BIT - 1);
           ret.setLow(0);
-          ret.setParentId(regId); // refference to self
+          ret.setParentId(regId); // reference to self
         }
         else {
+          auto pairId = translateRegIDToPairID(regId);
+          triton::uint32 offset = pairId.first;
+          triton::uint32 bitSize = pairId.second;
+          assert(bitSize % BYTE_SIZE_BIT == 0);
+
           if (offset < ID_REG_TMP) { // a query for virtual registers
-            snprintf(name, sizeof(name), "virtualReg(offset=0x%x,size=%d)", offset, bitSize);
+            snprintf(name, sizeof(name), "reg'(offset=0x%x,size=%d)", offset, bitSize);
             ret.setName(std::string(name));
             ret.setHigh(bitSize - 1);
             ret.setLow(0);
-            ret.setParentId(offset); // refference to parent registers
+            ret.setParentId(offset); // reference to parent registers
           }
-          else { // a query for tmp
-            snprintf(name, sizeof(name), "t%d", offset - ID_REG_TMP);
+          else {
+            snprintf(name, sizeof(name), "t%d'", offset - ID_REG_TMP);
             ret.setName(std::string(name));
-            ret.setHigh(QWORD_SIZE_BIT - 1); // FIXME: 
+            ret.setHigh(bitSize - 1);
             ret.setLow(0);
-            ret.setParentId(offset); // refference to self
+            ret.setParentId(offset); // reference to parent registers (regId holds bit width)
           }
         }
 
@@ -97,24 +93,38 @@ namespace triton {
       }
 
       triton::uint32 translatePairIDToRegID(triton::uint32 offset, triton::uint32 size) {
-        return offset * 0x10 + static_cast<triton::uint32>(std::log2(size));
+        assert(size > 0);
+        return offset + 0x10000 * static_cast<triton::uint32>(std::log2(size));
       }
 
       triton::uint32 translatePairIDToRegID(std::pair<triton::uint32, triton::uint32> pairId) {
-        return pairId.first * 0x10 + static_cast<triton::uint32>(std::log2(pairId.second));
+        return translatePairIDToRegID(pairId.first, pairId.second);
       }
 
       std::pair<triton::uint32, triton::uint32> translateRegIDToPairID(triton::uint32 regId) {
-        return std::make_pair(regId / 0x10, 1 << (regId % 0x10));
+        return std::make_pair(regId % 0x10000, 1 << (regId / 0x10000));
       }
 
-      triton::uint32 translateTmpToRegID(triton::uint32 tmp, triton::uint32 size) {
-        return translatePairIDToRegID(tmp + ID_REG_TMP, size);
+      triton::uint32 translateTmpToRegID(triton::uint32 tmpId, triton::uint32 size) {
+        return translatePairIDToRegID(tmpId + ID_REG_TMP, size);
       }
 
-      triton::uint32 translateRegIDToTmp(triton::uint32 regId) {
-        return translateRegIDToPairID(regId).first - ID_REG_TMP;
+      std::pair<triton::uint32, triton::uint32> translateRegIDToTmp(triton::uint32 regId) {
+        auto res = translateRegIDToPairID(regId);
+        return std::make_pair(res.first - ID_REG_TMP, res.second);
       }
+
+#if 0
+      triton::uint32 translateTmpToRegID(triton::uint32 tmpId, triton::uint32 size) {
+        assert(size > 0);
+        return tmpId * 0x10 + std::log2(size) + ID_REG_TMP;
+      }
+
+      std::pair<triton::uint32, triton::uint32> translateRegIDToTmp(triton::uint32 regId) {
+        auto tmpId = regId - ID_REG_TMP;
+        return std::make_pair(tmpId / 0x10, 1 << (tmpId % 0x10));
+      }
+#endif
 
     }; /* vex namespace */
   }; /* arch namespace */

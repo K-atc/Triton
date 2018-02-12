@@ -65,10 +65,10 @@ namespace triton {
         // TODO
         ID_REG_RIP = 184,
 
-        ID_REG_TMP = 0x1000,
+        ID_REG_TMP = 0x400,
 
         /* Must be the last item */
-        ID_REG_LAST_ITEM = 0x1100 //!< must be the last item
+        ID_REG_LAST_ITEM = 0x800 //!< must be the last item
       };
 
       //! The list of opcodes. (NOT USED)
@@ -84,9 +84,8 @@ namespace triton {
       triton::uint32 translatePairIDToRegID(triton::uint32 offset, triton::uint32 size);
       triton::uint32 translatePairIDToRegID(std::pair<triton::uint32, triton::uint32> pairId);
       std::pair<triton::uint32, triton::uint32> translateRegIDToPairID(triton::uint32 regId);
-      triton::uint32 translateTmpToRegID(triton::uint32 tmp, triton::uint32 size);
-      triton::uint32 translateRegIDToTmp(triton::uint32 regId);
-
+      triton::uint32 translateTmpToRegID(triton::uint32 tmpId, triton::uint32 size);
+      std::pair<triton::uint32, triton::uint32> translateRegIDToTmp(triton::uint32 regId);
     /*! @} End of vex namespace */
     };
   /*! @} End of arch namespace */

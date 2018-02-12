@@ -400,6 +400,15 @@ void print_vex_insns(vex_insns insns)
     }
 }
 
+void print_vex_insns_group(vex_insns_group &insns_group)
+{
+    for(auto itr = insns_group.begin(); itr != insns_group.end(); ++itr) {
+        puts("");
+        printf("*** [address = 0x%lx] ***\n", itr->first);
+        print_vex_insns(itr->second);
+    }
+}
+
 void set_const(vex_const *insn, PyObject *obj)
 {
     PyObject *v = nullptr;
@@ -570,11 +579,6 @@ bool vex_lift(vex_insns_group *insns_group, unsigned char *insns_bytes, triton::
             } else {
                 fprintf(stderr, "Passed pointer of PyObject was not a list or tuple!");
             }
-            for(auto itr = insns_group->begin(); itr != insns_group->end(); ++itr) {
-                puts("");
-                printf("*** [address = 0x%lx] ***\n", itr->first);
-                print_vex_insns(itr->second);
-            }
             Py_DECREF(ans);
         }
         Py_DECREF(pArgs);
@@ -588,7 +592,7 @@ bool vex_lift(vex_insns_group *insns_group, unsigned char *insns_bytes, triton::
 
     Py_DECREF(main);
     // Py_DECREF(global);
-    Py_DECREF(func);
+    // Py_DECREF(func);
 
     return true;
 }
@@ -599,7 +603,16 @@ void vex_lift_init(void)
     if (!Py_IsInitialized()) {
         Py_Initialize();
     }
+
+    // Load required modules
+    PyRun_SimpleString(
+        "import pyvex\n"
+        "import archinfo\n"
+        "import capstone\n"
+        "import hexdump\n"
+        );
 }
+
 
 void vex_lift_finilize(void)
 {

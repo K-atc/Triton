@@ -83,7 +83,8 @@ namespace triton {
       this->id = regId;
       if (!triton::api.isRegisterValid(regId)) {
         this->id = triton::arch::INVALID_REGISTER_ID;
-        throw triton::exceptions::Register("Register::setup(): triton::api.isRegisterValid is false");
+        // throw triton::exceptions::Register("Register::setup(): triton::api.isRegisterValid is false");
+        triton::logger::warn("Register::setup(): triton::api.isRegisterValid is false");
       }
 
       regInfo      = triton::api.getRegisterSpecification(this->id);

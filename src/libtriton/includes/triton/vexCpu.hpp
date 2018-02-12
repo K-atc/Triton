@@ -65,10 +65,10 @@ namespace triton {
           std::map<triton::uint64, triton::uint8> memory;
 
           //! Concrete value of registers
-          triton::uint8 cc_regs[DWORD_SIZE * 1000];
+          triton::uint8 cc_regs[2000]; // registers and tmp
 
           //! Concrete value of tmp
-          std::map<triton::uint32, triton::uint512> cc_tmp;
+          std::map<triton::uint32, triton::uint512> cc_tmp; // not used
 
           //! Holds VexIR Representations
           triton::intlibs::vexlifter::vex_insns_group lifted_vex_insns;

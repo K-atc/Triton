@@ -21,7 +21,7 @@ struct op trace[] = {
   {0x40000b, (unsigned char *)"\x48\x8D\x74\xDB\x0A",         5}, /* lea        rsi, [rbx+rax*8+0xa]        */
   {0x40000b, (unsigned char *)"\x48\x8D\x74\xC3\x0A",         5}, /* lea        rsi, [rbx+rax*8+0xa]        */
   {0x40000b, (unsigned char *)"\x48\x8D\x73\x0A",             4}, /* lea        rsi, [rbx+0xa]              */
-  // {0x400011, (unsigned char *)"\x66\x0F\xD7\xD1",             4}, /* pmovmskb   edx, xmm1                   */ // see below
+  //// {0x400011, (unsigned char *)"\x66\x0F\xD7\xD1",             4}, /* pmovmskb   edx, xmm1                   */ // see below
   {0x400015, (unsigned char *)"\x89\xd0",                     2}, /* mov        eax, edx                    */
   {0x400017, (unsigned char *)"\x80\xf4\x99",                 3}, /* xor        ah, 0x99                    */
   {0x40001a, (unsigned char *)"\x48\x31\xc0",                 3}, /* xor        rax, rax                    */

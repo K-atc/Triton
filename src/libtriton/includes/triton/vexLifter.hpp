@@ -241,6 +241,7 @@ typedef struct {
             void print_vex_expr(vex_expr expr, char* prefix);
             void print_vex_insn(vex_insn insn);
             void print_vex_insns(vex_insns insns);
+            void print_vex_insns_group(vex_insns_group& insns_group);
 
             void vex_lift_init(void);
             void vex_lift_finilize(void);

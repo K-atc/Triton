@@ -14,6 +14,7 @@
 #include <triton/register.hpp>
 #include <triton/x86Semantics.hpp>
 #include <triton/vexSemantics.hpp>
+#include <triton/vexSpecifications.hpp>
 
 #include <triton/logger.hpp>
 
@@ -68,6 +69,15 @@ namespace triton {
 
       /* Stage 1 - Update the context memory */
       // triton::logger::info("----------------");
+
+      /* for debugging */
+      for (unsigned int op_index = 0; op_index != inst.operands.size(); op_index++) {
+        std::cout << "\tOperand " << op_index << ": " << inst.operands[op_index] << std::endl;
+        if (inst.operands[op_index].getType() == OP_MEM) {
+          std::cout << "\t   base  : " << inst.operands[op_index].getMemory().getBaseRegister() << std::endl;
+        }
+      }
+
       // triton::logger::info("Stage 1 - Update the context memory");
       std::list<triton::arch::MemoryAccess>::iterator it1;
       for (it1 = inst.memoryAccess.begin(); it1 != inst.memoryAccess.end(); it1++) {
@@ -130,11 +140,25 @@ namespace triton {
           for (auto &ir_inst : inst.ir) {
             ret |= buildSemanticsDo(ir_inst);
           }
+#if 0
+          // clear all symbolic tmp for this block
+          for (triton::uint32 i = triton::arch::vex::ID_REG_TMP + 1; i < triton::arch::vex::ID_REG_LAST_ITEM; i++){
+            // auto bitSize = (1 << triton::arch::vex::translateRegIDToTmp(i).second);
+            auto bitSize = 1 << (i % 0x10);
+            triton::logger::info("(i, bitSize) = (%x, %d)", i, bitSize);
+            assert(bitSize == 1 << (i % 0x10));
+            if (BYTE_SIZE_BIT <= bitSize && bitSize <= MAX_BITS_SUPPORTED) {
+              triton::logger::info("bitSize = %d", bitSize);
+              this->symbolicEngine->concretizeRegister(triton::arch::Register(i));
+            }
+          }
+#endif
           break;
         }
         default:
           throw triton::exceptions::IrBuilder("IrBuilder::buildSemantics(): Unhandled architecture.");
       }
+      triton::logger::info("IrBuilder::buildSemantics(): end");
 
       return ret;
     }
