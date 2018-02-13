@@ -17,9 +17,9 @@ namespace triton {
     namespace intlibs {
         namespace vexlifter {
 
-#define VEX_IST_BASE 0x100000
-#define VEX_IEX_BASE 0x1000
-#define VEX_IOP_BASE 0x10
+#define VEX_IST_BASE 0x1000000
+#define VEX_IEX_BASE 0x10000
+#define VEX_IOP_BASE 0x100
 #define VEX_IJK_BASE 0x1
 
 typedef enum {
@@ -128,7 +128,7 @@ typedef enum {
 } vex_abst_iop;
 
 typedef enum {
-    Ijk_Invalid,
+    Ijk_Invalid = 0,
     Ijk_Boring,         /* not interesting; just goto next */
     Ijk_Call,           /* guest is doing a call */
     Ijk_Ret,            /* guest is doing a return */
@@ -161,7 +161,7 @@ typedef enum {
 } vex_ir_ijk;
 
 typedef enum {
-    Iend_Invalid,
+    Iend_Invalid = 0,
     Iend_LE,
     Iend_BE
 } vex_ir_endness;
@@ -203,7 +203,7 @@ typedef struct {
     int tmp = 0;
     int addr = 0;
     int len = 0;
-    vex_ir_ijk jumpkind;
+    vex_ir_ijk jumpkind = Ijk_Invalid;
     vex_expr guard;
     int offsIP;
     vex_const dst;
@@ -227,6 +227,10 @@ typedef struct {
 
             constexpr triton::uint32 vex_itype(vex_tag_ist const &ist, vex_tag_iex const &iex, vex_abst_iop const &iop) {
                 return vex_itype(ist, iex) + iop * VEX_IOP_BASE;
+            }
+
+            constexpr unsigned int vex_itype(vex_tag_ist const &ist, vex_ir_ijk const &ijk) {
+                return vex_itype(ist) + ijk * VEX_IJK_BASE;
             }
 
             constexpr unsigned int vex_itype(vex_tag_ist const &ist, vex_tag_iex const &iex, vex_ir_ijk const &ijk) {

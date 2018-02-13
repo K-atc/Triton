@@ -90,9 +90,10 @@ namespace triton {
           case vex_itype(Ist_IMark):
             // triton::logger::info("vexSemantics::buildSemantics: Ist_IMark"); break;
             break;
-          case vex_itype(Ist_Exit, Iex_RdTmp):
+          case vex_itype(Ist_Exit, Ijk_Boring):
             this->exit_s(inst); break;
-          case vex_itype(Ist_Jump): // TODO; Ijk_Syscall, etc.
+          case vex_itype(Ist_Jump):             // TODO; Ijk_Syscall, etc.
+          case vex_itype(Ist_Jump, Ijk_Boring): // TODO; Ijk_Syscall, etc.
             this->jump_boring_s(inst); break;
           case vex_itype(Ist_Put, Iex_Const): // mov_s
           case vex_itype(Ist_Put, Iex_RdTmp): // mov_s

@@ -389,13 +389,35 @@ namespace triton {
             inst.setType(ID_AMD64G_CALCUATE_CONDITION);
           }
           else {
-            inst.setType(
-              triton::intlibs::vexlifter::vex_itype(
-                vex_insn.tag,
-                vex_insn.data.tag,
-                triton::intlibs::vexlifter::vex_iop(vex_insn.data.op)
-              )
-            );
+            triton::logger::info(vex_insn.full.c_str());
+            if (vex_insn.tag == triton::intlibs::vexlifter::Ist_Jump) {
+              // triton::logger::info("jk st = %u, ex = %u, jk = %u", vex_insn.tag, vex_insn.data.tag, vex_insn.jumpkind);
+              inst.setType(
+                triton::intlibs::vexlifter::vex_itype(
+                  vex_insn.tag,
+                  vex_insn.data.tag,
+                  vex_insn.jumpkind
+                )
+              );
+            }
+            else if (vex_insn.tag == triton::intlibs::vexlifter::Ist_Exit) {
+              inst.setType(
+                triton::intlibs::vexlifter::vex_itype(
+                  vex_insn.tag,
+                  vex_insn.jumpkind
+                )
+              );
+            }
+            else {
+              inst.setType(
+                triton::intlibs::vexlifter::vex_itype(
+                  vex_insn.tag,
+                  vex_insn.data.tag,
+                  triton::intlibs::vexlifter::vex_iop(vex_insn.data.op)
+                )
+              );
+            }
+            // std::cout << std::hex << inst.getType() << std::endl;
           }
 
           /* Set Instruction Address */

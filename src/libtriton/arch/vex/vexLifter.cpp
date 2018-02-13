@@ -405,9 +405,9 @@ void print_vex_insn(vex_insn insn)
         printf("\taddr = 0x%x\n", insn.addr);
         printf("\tlen = %d\n", insn.len);
     }
-    if (insn.tag == Ist_Exit || insn.tag == Ist_Jump) {
+    // if (insn.tag == Ist_Exit || insn.tag == Ist_Jump) {
         printf("\tjumpkind = %s\n", vex_tag_enum_to_str(insn.jumpkind).c_str());
-    }
+    // }
     if (insn.tag == Ist_Exit) {
         print_vex_expr(insn.guard, (char *) "guard.");
         printf("\toffsIP = %d\n", insn.offsIP);
