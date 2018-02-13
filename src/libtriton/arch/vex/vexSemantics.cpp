@@ -110,6 +110,8 @@ namespace triton {
             this->binop_add_s(inst); break;
           case vex_itype(Ist_WrTmp, Iex_Binop, Iop_Shl):
             this->binop_shl_s(inst); break;
+          case vex_itype(Ist_WrTmp, Iex_Binop, Iop_Sub):
+            this->binop_sub_s(inst); break;
           case vex_itype(Ist_WrTmp, Iex_Binop, Iop_Xor):
             this->binop_xor_s(inst); break;
 #if 0
@@ -207,6 +209,32 @@ namespace triton {
         this->controlFlow_s(inst);
       }
 
+      // dst = src1 - src2
+      void vexSemantics::binop_sub_s(triton::arch::Instruction& inst) {
+        auto& dst  = inst.operands[0];
+        auto& src1 = inst.operands[1];
+        auto& src2 = inst.operands[2];
+
+        assert(src1.getBitSize() == src2.getBitSize());
+
+        /* Create symbolic operands */
+        auto op1 = this->symbolicEngine->buildSymbolicOperand(inst, src1);
+        auto op2 = this->symbolicEngine->buildSymbolicOperand(inst, src2);
+
+        /* Create the semantics */
+        auto node = triton::ast::bvsub(op1, op2);
+
+        /* Create symbolic expression */
+        auto expr = this->symbolicEngine->createSymbolicExpression(inst, node, dst, "ADD operation");
+
+        /* Spread taint */
+        expr->isTainted = this->taintEngine->taintUnion(dst, src1);
+        expr->isTainted |= this->taintEngine->taintUnion(dst, src2);
+
+        /* Upate the symbolic control flow */
+        this->controlFlow_s(inst);
+      }
+
       // dst = src1 ^ src2
       void vexSemantics::binop_xor_s(triton::arch::Instruction& inst) {
         auto& dst = inst.operands[0];
@@ -267,13 +295,14 @@ namespace triton {
 
         auto& dst = inst.operands[0];
         auto cond = inst.operands[1].getConcreteValue(); // symbolic const is not supported
-        auto cc_op = this->architecture->getConcreteRegisterValue(inst.operands[2].getRegister().getParent()).convert_to<triton::uint64>(); // symbolic cc_op is not supported
+        // auto cc_op = this->architecture->getConcreteRegisterValue(inst.operands[2].getRegister().getParent()).convert_to<triton::uint64>(); // symbolic cc_op is not supported
+        auto cc_op = this->architecture->getConcreteRegisterValue(inst.operands[2].getRegister()).convert_to<triton::uint64>(); // symbolic cc_op is not supported
         auto& cc_dep1 = inst.operands[3];
         auto& cc_dep2 = inst.operands[4];
         auto& cc_ndep = inst.operands[5];
 
-        std::cout << "\tcond = " << cond << std::endl;
-        std::cout << "\tcc_op = " << cc_op << std::endl;
+        std::cout << "\tcond = 0x" << std::hex << cond << std::endl;
+        std::cout << "\tcc_op = 0x" << std::hex << cc_op << std::endl;
 
         /* Create symbolic operands */
         auto op1 = this->symbolicEngine->buildSymbolicOperand(inst, cc_dep1);
@@ -374,9 +403,11 @@ namespace triton {
           case AMD64CondNO:   /* no overflow        */
           case AMD64CondB:    /* below              */
           case AMD64CondNB:   /* not below          */
-          case AMD64CondZ:    /* zero               */
-          case AMD64CondNZ:   /* not zero           */
             throw triton::exceptions::Semantics("vexSemantics::helper_amd64g_calculate_condition_s(): this cond Not implemented.");
+          case AMD64CondZ:    /* zero               */
+            node = triton::ast::equal(zf, triton::ast::bvtrue()); break;
+          case AMD64CondNZ:   /* not zero           */
+            node = triton::ast::equal(zf, triton::ast::bvfalse()); break;
           case AMD64CondBE:   /* below or equal     */
             node = triton::ast::bvor(cf, zf); break;                      // 1 & (inv ^ (cf | zf));
           case AMD64CondNBE:  /* not below or equal */

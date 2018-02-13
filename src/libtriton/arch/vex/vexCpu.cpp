@@ -45,9 +45,10 @@ namespace triton {
       void vexCpu::copy(const vexCpu& other) {
         this->callbacks = other.callbacks;
         this->memory    = other.memory;
-
+        // this->cc_tmp    = other.cc_tmp;
 
         std::memcpy(this->cc_regs,     other.cc_regs,    sizeof(this->cc_regs));
+        std::memcpy(this->cc_tmp,      other.cc_tmp,     sizeof(this->cc_tmp));
       }
 
 
@@ -58,9 +59,11 @@ namespace triton {
         triton::arch::vex::vex_tmp     = triton::arch::Register(); // not used
         triton::arch::vex::vex_reg_pc  = triton::arch::Register(triton::arch::vex::translatePairIDToRegID(triton::arch::vex::ID_REG_RIP, this->registerBitSize())); // FIXME: use archinfo
 
-        // for (int i = 0; i < 8 * 100) {
-        //     triton::arch::vex::vex_regs[i] = triton::arch::Register(i, 0x00, triton::arch::IMMUTABLE_REGISTER);
-        // }
+        /* Clear concrete registers */
+        // std::memset((void *) this->cc_regs, 0x00, sizeof(this->cc_regs));
+        std::memset((void *) this->cc_regs, 0xff, sizeof(this->cc_regs));
+        // this->cc_tmp.clear();
+        std::memset((void *) this->cc_tmp, 0xff, sizeof(this->cc_tmp));
       }
 
 
@@ -70,7 +73,8 @@ namespace triton {
 
         /* Clear registers */
         std::memset((void *) this->cc_regs, 0x00, sizeof(this->cc_regs));
-        this->cc_tmp.clear(); // Clear content of tmp
+        // this->cc_tmp.clear(); // Clear content of tmp
+        std::memset((void *) this->cc_tmp, 0x00, sizeof(this->cc_tmp));
       }
 
 
@@ -611,25 +615,45 @@ namespace triton {
 
 
       triton::uint512 vexCpu::getConcreteRegisterValue(const triton::arch::Register& reg, bool execCallbacks) const {
-        triton::uint512 value = 0;
-
         if (execCallbacks && this->callbacks)
           this->callbacks->processCallbacks(triton::callbacks::GET_CONCRETE_REGISTER_VALUE, reg);
 
+        if (!isRegisterValid(reg.getId())) {
+          std::cout << "reg: " << reg << std::endl;
+          throw triton::exceptions::Cpu("vexCpu:getConcreteRegisterValue(): Invalid register.");
+        }
+
         triton::uint32 regId = reg.getId();
         triton::uint32 offset = translateRegIDToPairID(regId).first;
-        // triton::logger::info("vexCpu::getConcreteRegisterValue(): offset = %u, reg.getBitSize() = %d", offset, reg.getBitSize());
-        // std::cout << "\treg: " << reg << std::endl;
+        triton::logger::info("vexCpu::getConcreteRegisterValue(): offset = %u, reg.getBitSize() = %d", offset, reg.getBitSize());
+        std::cout << "\treg: " << reg << std::endl;
+        std::cout << "\tret: " << std::hex << triton::utils::fromBufferToUint<triton::uint64>(&(this->cc_regs[offset])) << std::endl;
         assert(reg.getBitSize() % BYTE_SIZE_BIT == 0);
-        switch (reg.getBitSize()) {
-          case 8:   return this->cc_regs[offset];
-          case 16:  return triton::utils::fromBufferToUint<triton::uint16>(&(this->cc_regs[offset]));
-          case 32:  return triton::utils::fromBufferToUint<triton::uint32>(&(this->cc_regs[offset]));
-          case 64:  return triton::utils::fromBufferToUint<triton::uint64>(&(this->cc_regs[offset]));
-          case 128: return triton::utils::fromBufferToUint<triton::uint128>(&(this->cc_regs[offset]));
-          case 256: return triton::utils::fromBufferToUint<triton::uint256>(&(this->cc_regs[offset]));
-          case 512: return triton::utils::fromBufferToUint<triton::uint512>(&(this->cc_regs[offset]));
-          default:  return value;
+        if (offset < triton::arch::vex::ID_REG_TMP) {
+          switch (reg.getBitSize()) {
+            case 8:   return this->cc_regs[offset];
+            case 16:  return triton::utils::fromBufferToUint<triton::uint16>(&(this->cc_regs[offset]));
+            case 32:  return triton::utils::fromBufferToUint<triton::uint32>(&(this->cc_regs[offset]));
+            case 64:  return triton::utils::fromBufferToUint<triton::uint64>(&(this->cc_regs[offset]));
+            case 128: return triton::utils::fromBufferToUint<triton::uint128>(&(this->cc_regs[offset]));
+            case 256: return triton::utils::fromBufferToUint<triton::uint256>(&(this->cc_regs[offset]));
+            case 512: return triton::utils::fromBufferToUint<triton::uint512>(&(this->cc_regs[offset]));
+            default:
+              throw triton::exceptions::Cpu("vexCpu:getConcreteRegisterValue(): Invalid register size.");
+          }
+        }
+        else {
+          switch (reg.getBitSize()) {
+            case 8:   return static_cast<triton::uint8>(this->cc_tmp[offset]);
+            case 16:  return static_cast<triton::uint16>(this->cc_tmp[offset]);
+            case 32:  return static_cast<triton::uint32>(this->cc_tmp[offset]);
+            case 64:  return static_cast<triton::uint64>(this->cc_tmp[offset]);
+            case 128: return static_cast<triton::uint128>(this->cc_tmp[offset]);
+            case 256: return static_cast<triton::uint256>(this->cc_tmp[offset]);
+            case 512: return static_cast<triton::uint512>(this->cc_tmp[offset]);
+            default:
+              throw triton::exceptions::Cpu("vexCpu:getConcreteRegisterValue(): Invalid register size.");
+          }
         }
       }
 
@@ -669,24 +693,45 @@ namespace triton {
 
 
       void vexCpu::setConcreteRegisterValue(const triton::arch::Register& reg) {
-        triton::uint512 value = reg.getConcreteValue();
-
-        triton::uint32 offset = translateRegIDToPairID(reg.getId()).first;
-        // triton::logger::info("vexCpu::setConcreteRegisterValue: offset = %d, reg.getSize() = %d", offset, reg.getSize());
-        // std::cout << "\tvalue = " << value << std::endl;
-        switch (reg.getSize()) {
-          case BYTE_SIZE:     this->cc_regs[offset]  = value.convert_to<triton::uint8>(); break;
-          case WORD_SIZE:     triton::utils::fromUintToBuffer(value.convert_to<triton::uint16>(), &(this->cc_regs[offset])); break;
-          case DWORD_SIZE:    triton::utils::fromUintToBuffer(value.convert_to<triton::uint32>(), &(this->cc_regs[offset])); break;
-          case QWORD_SIZE:    triton::utils::fromUintToBuffer(value.convert_to<triton::uint64>(), &(this->cc_regs[offset])); break;
-          case DQWORD_SIZE:   triton::utils::fromUintToBuffer(value.convert_to<triton::uint128>(), &(this->cc_regs[offset])); break;
-          case QQWORD_SIZE:   triton::utils::fromUintToBuffer(value.convert_to<triton::uint256>(), &(this->cc_regs[offset])); break;
-          case DQQWORD_SIZE:  triton::utils::fromUintToBuffer(value.convert_to<triton::uint512>(), &(this->cc_regs[offset])); break;
-          default:
-            throw triton::exceptions::Cpu("vexCpu:setConcreteRegisterValue(): Invalid register size.");
+        if (!isRegisterValid(reg.getId())) {
+          std::cout << "reg: " << reg << std::endl;
+          throw triton::exceptions::Cpu("vexCpu:setConcreteRegisterValue(): Invalid register.");
         }
 
-        // std::cout << "\tresult: " << getConcreteRegisterValue(reg, false) << std::endl;
+        triton::uint512 value = reg.getConcreteValue();
+        triton::uint32 regSize = reg.getSize();
+
+        triton::uint32 offset = translateRegIDToPairID(reg.getId()).first;
+        triton::logger::info("vexCpu::setConcreteRegisterValue: offset = %d, regSize = %d", offset, regSize);
+        std::cout << "\tvalue = 0x" << std::hex << value << std::endl;
+        if (offset < triton::arch::vex::ID_REG_TMP) {
+          switch (regSize) {
+            case BYTE_SIZE:     this->cc_regs[offset]  = value.convert_to<triton::uint8>(); break;
+            case WORD_SIZE:     triton::utils::fromUintToBuffer(value.convert_to<triton::uint16>(), &(this->cc_regs[offset])); break;
+            case DWORD_SIZE:    triton::utils::fromUintToBuffer(value.convert_to<triton::uint32>(), &(this->cc_regs[offset])); break;
+            case QWORD_SIZE:    triton::utils::fromUintToBuffer(value.convert_to<triton::uint64>(), &(this->cc_regs[offset])); break;
+            case DQWORD_SIZE:   triton::utils::fromUintToBuffer(value.convert_to<triton::uint128>(), &(this->cc_regs[offset])); break;
+            case QQWORD_SIZE:   triton::utils::fromUintToBuffer(value.convert_to<triton::uint256>(), &(this->cc_regs[offset])); break;
+            case DQQWORD_SIZE:  triton::utils::fromUintToBuffer(value.convert_to<triton::uint512>(), &(this->cc_regs[offset])); break;
+            default:
+              throw triton::exceptions::Cpu("vexCpu:setConcreteRegisterValue(): Invalid register size.");
+          }
+        }
+        else {
+          switch (regSize) {
+            case BYTE_SIZE:     ((triton::uint8*)&(this->cc_tmp[offset]))[0] = value.convert_to<triton::uint8>(); break;
+            case WORD_SIZE:     triton::utils::fromUintToBuffer(value.convert_to<triton::uint16>(), (triton::uint8*) &(this->cc_tmp[offset])); break;
+            case DWORD_SIZE:    triton::utils::fromUintToBuffer(value.convert_to<triton::uint32>(), (triton::uint8*) &(this->cc_tmp[offset])); break;
+            case QWORD_SIZE:    triton::utils::fromUintToBuffer(value.convert_to<triton::uint64>(), (triton::uint8*) &(this->cc_tmp[offset])); break;
+            case DQWORD_SIZE:   triton::utils::fromUintToBuffer(value.convert_to<triton::uint128>(), (triton::uint8*) &(this->cc_tmp[offset])); break;
+            case QQWORD_SIZE:   triton::utils::fromUintToBuffer(value.convert_to<triton::uint256>(), (triton::uint8*) &(this->cc_tmp[offset])); break;
+            case DQQWORD_SIZE:  triton::utils::fromUintToBuffer(value.convert_to<triton::uint512>(), (triton::uint8*) &(this->cc_tmp[offset])); break;
+            default:
+              throw triton::exceptions::Cpu("vexCpu:setConcreteRegisterValue(): Invalid register size.");
+          }
+        }
+        assert(getConcreteRegisterValue(reg, false) == value);
+        // std::cout << "\tresult: 0x" << std::hex << getConcreteRegisterValue(reg, false) << std::endl;
       }
 
 

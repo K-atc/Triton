@@ -81,6 +81,7 @@ namespace triton {
 
           void binop_add_s(triton::arch::Instruction& inst);
           void binop_shl_s(triton::arch::Instruction& inst);
+          void binop_sub_s(triton::arch::Instruction& inst);
           void binop_xor_s(triton::arch::Instruction& inst);
           void exit_s(triton::arch::Instruction& inst);
           void helper_amd64g_calculate_condition_s(triton::arch::Instruction& inst);
