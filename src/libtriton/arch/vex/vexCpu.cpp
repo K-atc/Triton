@@ -60,10 +60,8 @@ namespace triton {
         triton::arch::vex::vex_reg_pc  = triton::arch::Register(triton::arch::vex::translatePairIDToRegID(triton::arch::vex::ID_REG_RIP, this->registerBitSize())); // FIXME: use archinfo
 
         /* Clear concrete registers */
-        // std::memset((void *) this->cc_regs, 0x00, sizeof(this->cc_regs));
-        std::memset((void *) this->cc_regs, 0xff, sizeof(this->cc_regs));
-        // this->cc_tmp.clear();
-        std::memset((void *) this->cc_tmp, 0xff, sizeof(this->cc_tmp));
+        std::memset((void *) this->cc_regs, 0x00, sizeof(this->cc_regs));
+        std::memset((void *) this->cc_tmp, 0x00, sizeof(this->cc_tmp));
       }
 
 
@@ -73,7 +71,6 @@ namespace triton {
 
         /* Clear registers */
         std::memset((void *) this->cc_regs, 0x00, sizeof(this->cc_regs));
-        // this->cc_tmp.clear(); // Clear content of tmp
         std::memset((void *) this->cc_tmp, 0x00, sizeof(this->cc_tmp));
       }
 

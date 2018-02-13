@@ -307,18 +307,18 @@ namespace triton {
         /* Create symbolic operands */
         auto op1 = this->symbolicEngine->buildSymbolicOperand(inst, cc_dep1);
         auto op2 = this->symbolicEngine->buildSymbolicOperand(inst, cc_dep2);
-        auto op3 = this->symbolicEngine->buildSymbolicOperand(inst, cc_ndep);
-        UNUSED(op2);
-        UNUSED(op3);
+        // auto op3 = this->symbolicEngine->buildSymbolicOperand(inst, cc_ndep);
 
         /* Create the semantics (Phase I) */
-        triton::ast::AbstractNode *cf = nullptr, *pf = nullptr, *af = nullptr, *zf = nullptr, *sf = nullptr, *of = nullptr;
-        auto high = cc_dep1.getBitSize() - 1;
-        triton::logger::info("vexSemantics::helper_amd64g_calculate_condition_s: high = %d", high);
-        UNUSED(pf);
+        triton::ast::AbstractNode *cf = nullptr, *af = nullptr, *zf = nullptr, *sf = nullptr, *of = nullptr;
         UNUSED(af);
-        UNUSED(sf);
         UNUSED(of);
+        triton::ast::AbstractNode *res = nullptr;
+        // auto high = cc_dep1.getBitSize() - 1;
+        auto bvSize = cc_dep1.getBitSize();
+        auto high = cc_dep1.getAbstractHigh();
+        auto low = cc_dep1.getAbstractLow();
+        triton::logger::info("vexSemantics::helper_amd64g_calculate_condition_s: high = %d", high);
         switch ((unsigned int) cc_op) {
           case AMD64G_CC_OP_COPY:  /* DEP1 = current flags, DEP2 = 0, NDEP = unused */
                                      /* just copy DEP1 to output */
@@ -326,10 +326,23 @@ namespace triton {
           case AMD64G_CC_OP_ADDW:    /* 2 DEP1 = argL, DEP2 = argR, NDEP = unused */
           case AMD64G_CC_OP_ADDL:    /* 3 */
           case AMD64G_CC_OP_ADDQ:    /* 4 */
+            throw triton::exceptions::Semantics("vexSemantics::helper_amd64g_calculate_condition_s(): this cc_op not implemented.");
           case AMD64G_CC_OP_SUBB:    /* 5 */
           case AMD64G_CC_OP_SUBW:    /* 6 DEP1 = argL, DEP2 = argR, NDEP = unused */
           case AMD64G_CC_OP_SUBL:    /* 7 */
           case AMD64G_CC_OP_SUBQ:    /* 8 */
+            res = triton::ast::bvsub(op1, op2);
+            cf = triton::ast::bvult(op1, op2); // op1 < op2
+            af = triton::ast::bvxor(res, triton::ast::bvxor(op1, op2));
+            zf = triton::ast::equal(res, triton::ast::bv(0, cc_dep1.getBitSize())); // res == 0
+            sf = triton::ast::extract(high, high, op1);
+            of = triton::ast::extract(bvSize-1, bvSize-1,
+                  triton::ast::bvand(
+                    triton::ast::bvxor(op1, op2),
+                    triton::ast::bvxor(op1, triton::ast::extract(high, low, res))
+                  )
+                ); // of = high:bool((op1 ^ op2) & (op1 ^ regDst))
+            break;
           case AMD64G_CC_OP_ADCB:    /* 9 */
           case AMD64G_CC_OP_ADCW:    /* 10 DEP1 = argL, DEP2 = argR ^ oldCarry, NDEP = oldCarry */
           case AMD64G_CC_OP_ADCL:    /* 11 */
