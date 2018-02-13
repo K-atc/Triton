@@ -1,0 +1,3 @@
+[submodule "src/libtriton/includes/vex"]
+	path = src/libtriton/includes/vex
+	url = https://github.com/angr/vex.git

@@ -57,9 +57,9 @@ int main(int ac, const char **av) {
         std::cout << "\tOperand " << op_index << ": " << inst.operands[op_index] << std::endl;
         if (inst.operands[op_index].getType() == OP_MEM) {
           std::cout << "\t   base  : " << inst.operands[op_index].getMemory().getBaseRegister() << std::endl;
-          std::cout << "\t   index : " << inst.operands[op_index].getMemory().getIndexRegister() << std::endl;
-          std::cout << "\t   disp  : " << inst.operands[op_index].getMemory().getDisplacement() << std::endl;
-          std::cout << "\t   scale : " << inst.operands[op_index].getMemory().getScale() << std::endl;
+          // std::cout << "\t   index : " << inst.operands[op_index].getMemory().getIndexRegister() << std::endl;
+          // std::cout << "\t   disp  : " << inst.operands[op_index].getMemory().getDisplacement() << std::endl;
+          // std::cout << "\t   scale : " << inst.operands[op_index].getMemory().getScale() << std::endl;
         }
       }
 

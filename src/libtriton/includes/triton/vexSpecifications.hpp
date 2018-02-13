@@ -62,18 +62,22 @@ namespace triton {
       enum registers_e {
         ID_REG_INVALID = 0, //!< invalid = 0
 
-        // TODO
+        // general registers here
         ID_REG_RIP = 184,
 
+        // tmp registers here
         ID_REG_TMP = 0x400,
 
+
         /* Must be the last item */
-        ID_REG_LAST_ITEM = 0x800 //!< must be the last item
+        ID_REG_LAST_ITEM = 0x1000 //!< must be the last item
       };
 
-      //! The list of opcodes. (NOT USED)
+      //! The list of opcodes.
       enum instructions_e {
         ID_INST_INVALID = 0, //!< invalid
+
+        ID_AMD64G_CALCUATE_CONDITION, //!< amd64g_calculate_condition()
 
         ID_INS_TODO, // TODO
 

@@ -365,6 +365,9 @@ namespace triton {
         }
         else { // already lifted
           vex_insns = lifted_vex_insns[address];
+
+          // Set Opecodes (Not works)
+          // baseInst.setOpcodes((triton::uint8*) vex_insns[0].asmbytes.c_str(), vex_insns[0].asmbytes.length()); // Ist_IMark
         }
 
         baseInst.setDisassembly(vex_insns[0].disasm);
@@ -382,13 +385,18 @@ namespace triton {
           inst.setSize(vex_insns[0].len);
 
           /* Init the instruction's type */
-          inst.setType(
-            triton::intlibs::vexlifter::vex_itype(
-              vex_insn.tag,
-              vex_insn.data.tag,
-              triton::intlibs::vexlifter::vex_iop(vex_insn.data.op)
-            )
-          );
+          if (vex_insn.data.cee == "amd64g_calculate_condition") {
+            inst.setType(ID_AMD64G_CALCUATE_CONDITION);
+          }
+          else {
+            inst.setType(
+              triton::intlibs::vexlifter::vex_itype(
+                vex_insn.tag,
+                vex_insn.data.tag,
+                triton::intlibs::vexlifter::vex_iop(vex_insn.data.op)
+              )
+            );
+          }
 
           /* Set Instruction Address */
           inst.setAddress(address);
@@ -482,7 +490,8 @@ namespace triton {
           if (vex_insn.data.tag != triton::intlibs::vexlifter::Iex_Invalid &&
               vex_insn.data.tag != triton::intlibs::vexlifter::Iex_Unop &&
               vex_insn.data.tag != triton::intlibs::vexlifter::Iex_Binop &&
-              vex_insn.data.tag != triton::intlibs::vexlifter::Iex_Triop
+              vex_insn.data.tag != triton::intlibs::vexlifter::Iex_Triop &&
+              vex_insn.data.tag != triton::intlibs::vexlifter::Iex_CCall
             ) {
             inst.operands.push_back(
               generateOperandWrapperFromData(vex_insn.data, inst)
@@ -529,7 +538,10 @@ namespace triton {
         triton::intlibs::vexlifter::vex_insns_group res;
         vex_lift(&res, insnBytes, address, insnBytesSize);
 
-        // Update CPU-side VexIRs
+        /* For debugging */
+        print_vex_insns_group(res);
+
+        /* Update CPU-side VexIRs */
         for ( auto &itr : res) {
           lifted_vex_insns[itr.first] = itr.second;
         }
@@ -582,18 +594,19 @@ namespace triton {
         if (execCallbacks && this->callbacks)
           this->callbacks->processCallbacks(triton::callbacks::GET_CONCRETE_REGISTER_VALUE, reg);
 
-        triton::uint32 reg_id = reg.getId();
-        triton::logger::info("vexCpu::getConcreteRegisterValue(): reg.getBitSize() = %d", reg.getBitSize());
-        std::cout << "\treg: " << reg << std::endl;
+        triton::uint32 regId = reg.getId();
+        triton::uint32 offset = translateRegIDToPairID(regId).first;
+        // triton::logger::info("vexCpu::getConcreteRegisterValue(): offset = %u, reg.getBitSize() = %d", offset, reg.getBitSize());
+        // std::cout << "\treg: " << reg << std::endl;
         assert(reg.getBitSize() % BYTE_SIZE_BIT == 0);
         switch (reg.getBitSize()) {
-          case 8:   return this->cc_regs[reg_id];
-          case 16:  return triton::utils::fromBufferToUint<triton::uint16>(&(this->cc_regs[reg_id]));
-          case 32:  return triton::utils::fromBufferToUint<triton::uint32>(&(this->cc_regs[reg_id]));
-          case 64:  return triton::utils::fromBufferToUint<triton::uint64>(&(this->cc_regs[reg_id]));
-          case 128: return triton::utils::fromBufferToUint<triton::uint128>(&(this->cc_regs[reg_id]));
-          case 256: return triton::utils::fromBufferToUint<triton::uint256>(&(this->cc_regs[reg_id]));
-          case 512: return triton::utils::fromBufferToUint<triton::uint512>(&(this->cc_regs[reg_id]));
+          case 8:   return this->cc_regs[offset];
+          case 16:  return triton::utils::fromBufferToUint<triton::uint16>(&(this->cc_regs[offset]));
+          case 32:  return triton::utils::fromBufferToUint<triton::uint32>(&(this->cc_regs[offset]));
+          case 64:  return triton::utils::fromBufferToUint<triton::uint64>(&(this->cc_regs[offset]));
+          case 128: return triton::utils::fromBufferToUint<triton::uint128>(&(this->cc_regs[offset]));
+          case 256: return triton::utils::fromBufferToUint<triton::uint256>(&(this->cc_regs[offset]));
+          case 512: return triton::utils::fromBufferToUint<triton::uint512>(&(this->cc_regs[offset]));
           default:  return value;
         }
       }
@@ -636,9 +649,9 @@ namespace triton {
       void vexCpu::setConcreteRegisterValue(const triton::arch::Register& reg) {
         triton::uint512 value = reg.getConcreteValue();
 
-        // triton::logger::info("vexCpu::setConcreteRegisterValue: reg.getId() = 0x%x", reg.getId());
-        // triton::logger::info("vexCpu::setConcreteRegisterValue: reg.getSize() = %d", reg.getSize());
         triton::uint32 offset = translateRegIDToPairID(reg.getId()).first;
+        // triton::logger::info("vexCpu::setConcreteRegisterValue: offset = %d, reg.getSize() = %d", offset, reg.getSize());
+        // std::cout << "\tvalue = " << value << std::endl;
         switch (reg.getSize()) {
           case BYTE_SIZE:     this->cc_regs[offset]  = value.convert_to<triton::uint8>(); break;
           case WORD_SIZE:     triton::utils::fromUintToBuffer(value.convert_to<triton::uint16>(), &(this->cc_regs[offset])); break;
@@ -650,6 +663,8 @@ namespace triton {
           default:
             throw triton::exceptions::Cpu("vexCpu:setConcreteRegisterValue(): Invalid register size.");
         }
+
+        // std::cout << "\tresult: " << getConcreteRegisterValue(reg, false) << std::endl;
       }
 
 

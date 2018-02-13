@@ -10,9 +10,14 @@
 #include <triton/vexSemantics.hpp>
 #include <triton/vexSpecifications.hpp>
 
+/* libVex */
+#include <vex/priv/guest_amd64_defs.h>
+
 #include <triton/logger.hpp>
 #include <triton/vexLifter.hpp>
 #include <assert.h>
+
+#define UNUSED(x) ((void)(x))
 
 
 /*! \page SMT_Semantics_Supported_page SMT Semantics Supported
@@ -80,6 +85,8 @@ namespace triton {
         }
 
         switch ((triton::uint32) inst.getType()) {
+          case ID_AMD64G_CALCUATE_CONDITION:
+            this->helper_amd64g_calculate_condition_s(inst); break;
           case vex_itype(Ist_IMark):
             // triton::logger::info("vexSemantics::buildSemantics: Ist_IMark"); break;
             break;
@@ -251,6 +258,155 @@ namespace triton {
         this->symbolicEngine->addPathConstraint(inst, expr);
       }
 
+      // e.g. t5 = amd64g_calculate_condition(0x0000000000000006,t1,t2,t3,t4):Ity_I64
+      void vexSemantics::helper_amd64g_calculate_condition_s(triton::arch::Instruction& inst) {
+        /* Type annotations */
+        assert(inst.operands[1].getType() == triton::arch::OP_IMM); // cond
+        assert(inst.operands[2].getType() == triton::arch::OP_REG); // cc_op
+
+        auto& dst = inst.operands[0];
+        auto cond = inst.operands[1].getConcreteValue(); // symbolic const is not supported
+        auto cc_op = this->architecture->getConcreteRegisterValue(inst.operands[2].getRegister().getParent()).convert_to<triton::uint64>(); // symbolic cc_op is not supported
+        auto& cc_dep1 = inst.operands[3];
+        auto& cc_dep2 = inst.operands[4];
+        auto& cc_ndep = inst.operands[5];
+
+        std::cout << "\tcond = " << cond << std::endl;
+        std::cout << "\tcc_op = " << cc_op << std::endl;
+
+        /* Create symbolic operands */
+        auto op1 = this->symbolicEngine->buildSymbolicOperand(inst, cc_dep1);
+        auto op2 = this->symbolicEngine->buildSymbolicOperand(inst, cc_dep2);
+        auto op3 = this->symbolicEngine->buildSymbolicOperand(inst, cc_ndep);
+        UNUSED(op2);
+        UNUSED(op3);
+
+        /* Create the semantics (Phase I) */
+        triton::ast::AbstractNode *cf = nullptr, *pf = nullptr, *af = nullptr, *zf = nullptr, *sf = nullptr, *of = nullptr;
+        auto high = cc_dep1.getBitSize() - 1;
+        triton::logger::info("vexSemantics::helper_amd64g_calculate_condition_s: high = %d", high);
+        UNUSED(pf);
+        UNUSED(af);
+        UNUSED(sf);
+        UNUSED(of);
+        switch ((unsigned int) cc_op) {
+          case AMD64G_CC_OP_COPY:  /* DEP1 = current flags, DEP2 = 0, NDEP = unused */
+                                     /* just copy DEP1 to output */
+          case AMD64G_CC_OP_ADDB:    /* 1 */
+          case AMD64G_CC_OP_ADDW:    /* 2 DEP1 = argL, DEP2 = argR, NDEP = unused */
+          case AMD64G_CC_OP_ADDL:    /* 3 */
+          case AMD64G_CC_OP_ADDQ:    /* 4 */
+          case AMD64G_CC_OP_SUBB:    /* 5 */
+          case AMD64G_CC_OP_SUBW:    /* 6 DEP1 = argL, DEP2 = argR, NDEP = unused */
+          case AMD64G_CC_OP_SUBL:    /* 7 */
+          case AMD64G_CC_OP_SUBQ:    /* 8 */
+          case AMD64G_CC_OP_ADCB:    /* 9 */
+          case AMD64G_CC_OP_ADCW:    /* 10 DEP1 = argL, DEP2 = argR ^ oldCarry, NDEP = oldCarry */
+          case AMD64G_CC_OP_ADCL:    /* 11 */
+          case AMD64G_CC_OP_ADCQ:    /* 12 */
+          case AMD64G_CC_OP_SBBB:    /* 13 */
+          case AMD64G_CC_OP_SBBW:    /* 14 DEP1 = argL, DEP2 = argR ^ oldCarry, NDEP = oldCarry */
+          case AMD64G_CC_OP_SBBL:    /* 15 */
+          case AMD64G_CC_OP_SBBQ:    /* 16 */
+            throw triton::exceptions::Semantics("vexSemantics::helper_amd64g_calculate_condition_s(): this cc_op not implemented.");
+          case AMD64G_CC_OP_LOGICB:  /* 17 */
+          case AMD64G_CC_OP_LOGICW:  /* 18 DEP1 = result, DEP2 = 0, NDEP = unused */
+          case AMD64G_CC_OP_LOGICL:  /* 19 */
+          case AMD64G_CC_OP_LOGICQ:  /* 20 */
+            cf = triton::ast::bvfalse();
+            af = triton::ast::bvfalse();
+            zf = triton::ast::equal(op1, triton::ast::bv(0, cc_dep1.getBitSize()));
+            std::cout << "\tzf = " << zf << std::endl;
+            sf = triton::ast::extract(high, high, op1);
+            std::cout << "\tsf = " << sf << std::endl;
+            of = triton::ast::bvfalse();
+            break;
+          case AMD64G_CC_OP_INCB:    /* 21 */
+          case AMD64G_CC_OP_INCW:    /* 22 DEP1 = result, DEP2 = 0, NDEP = oldCarry (0 or 1) */
+          case AMD64G_CC_OP_INCL:    /* 23 */
+          case AMD64G_CC_OP_INCQ:    /* 24 */
+          case AMD64G_CC_OP_DECB:    /* 25 */
+          case AMD64G_CC_OP_DECW:    /* 26 DEP1 = result, DEP2 = 0, NDEP = oldCarry (0 or 1) */
+          case AMD64G_CC_OP_DECL:    /* 27 */
+          case AMD64G_CC_OP_DECQ:    /* 28 */
+          case AMD64G_CC_OP_SHLB:    /* 29 DEP1 = res, DEP2 = res', NDEP = unused */
+          case AMD64G_CC_OP_SHLW:    /* 30 where res' is like res but shifted one bit less */
+          case AMD64G_CC_OP_SHLL:    /* 31 */
+          case AMD64G_CC_OP_SHLQ:    /* 32 */
+          case AMD64G_CC_OP_SHRB:    /* 33 DEP1 = res, DEP2 = res', NDEP = unused */
+          case AMD64G_CC_OP_SHRW:    /* 34 where res' is like res but shifted one bit less */
+          case AMD64G_CC_OP_SHRL:    /* 35 */
+          case AMD64G_CC_OP_SHRQ:    /* 36 */
+          case AMD64G_CC_OP_ROLB:    /* 37 */
+          case AMD64G_CC_OP_ROLW:    /* 38 DEP1 = res, DEP2 = 0, NDEP = old flags */
+          case AMD64G_CC_OP_ROLL:    /* 39 */
+          case AMD64G_CC_OP_ROLQ:    /* 40 */
+          case AMD64G_CC_OP_RORB:    /* 41 */
+          case AMD64G_CC_OP_RORW:    /* 42 DEP1 = res, DEP2 = 0, NDEP = old flags */
+          case AMD64G_CC_OP_RORL:    /* 43 */
+          case AMD64G_CC_OP_RORQ:    /* 44 */
+          case AMD64G_CC_OP_UMULB:   /* 45 */
+          case AMD64G_CC_OP_UMULW:   /* 46 DEP1 = argL, DEP2 = argR, NDEP = unused */
+          case AMD64G_CC_OP_UMULL:   /* 47 */
+          case AMD64G_CC_OP_UMULQ:   /* 48 */
+          case AMD64G_CC_OP_SMULB:   /* 49 */
+          case AMD64G_CC_OP_SMULW:   /* 50 DEP1 = argL, DEP2 = argR, NDEP = unused */
+          case AMD64G_CC_OP_SMULL:   /* 51 */
+          case AMD64G_CC_OP_SMULQ:   /* 52 */
+          case AMD64G_CC_OP_ANDN32:  /* 53 */
+          case AMD64G_CC_OP_ANDN64:  /* 54 DEP1 = res, DEP2 = 0, NDEP = unused */
+          case AMD64G_CC_OP_BLSI32:  /* 55 */
+          case AMD64G_CC_OP_BLSI64:  /* 56 DEP1 = res, DEP2 = arg, NDEP = unused */
+          case AMD64G_CC_OP_BLSMSK32:/* 57 */
+          case AMD64G_CC_OP_BLSMSK64:/* 58 DEP1 = res, DEP2 = arg, NDEP = unused */
+          case AMD64G_CC_OP_BLSR32:  /* 59 */
+          case AMD64G_CC_OP_BLSR64:  /* 60 DEP1 = res, DEP2 = arg, NDEP = unused */
+            throw triton::exceptions::Semantics("vexSemantics::helper_amd64g_calculate_condition_s(): this cc_op not implemented."); break;
+          default:
+            throw triton::exceptions::Semantics("vexSemantics::helper_amd64g_calculate_condition_s(): Unknown cc_op.");
+        }
+
+        /* Create the semantics (Phase II) */
+        triton::ast::AbstractNode* node = nullptr;
+        switch (static_cast<AMD64Condcode>(cond)) {
+          case AMD64CondO:    /* overflow           */
+          case AMD64CondNO:   /* no overflow        */
+          case AMD64CondB:    /* below              */
+          case AMD64CondNB:   /* not below          */
+          case AMD64CondZ:    /* zero               */
+          case AMD64CondNZ:   /* not zero           */
+            throw triton::exceptions::Semantics("vexSemantics::helper_amd64g_calculate_condition_s(): this cond Not implemented.");
+          case AMD64CondBE:   /* below or equal     */
+            node = triton::ast::bvor(cf, zf); break;                      // 1 & (inv ^ (cf | zf));
+          case AMD64CondNBE:  /* not below or equal */
+            node = triton::ast::bvneg(triton::ast::bvor(cf, zf)); break;  // 1 & (inv ^ (cf | zf));
+          case AMD64CondS:    /* negative           */
+          case AMD64CondNS:   /* not negative       */
+          case AMD64CondP:    /* parity even        */
+          case AMD64CondNP:   /* not parity even    */
+          case AMD64CondL:    /* less               */
+          case AMD64CondNL:   /* not less           */
+          case AMD64CondLE:   /* less or equal      */
+          case AMD64CondNLE:  /* not less or equal  */
+            throw triton::exceptions::Semantics("vexSemantics::helper_amd64g_calculate_condition_s(): this cond Not implemented.");
+          default:
+            throw triton::exceptions::Semantics("vexSemantics::helper_amd64g_calculate_condition_s(): Unknown cond.");
+        }
+
+        /* Create symbolic expression */
+        auto expr = this->symbolicEngine->createSymbolicExpression(inst, node, dst, "amd64g_calculate_condition operation");
+
+        /* Spread taint */
+        expr->isTainted  = this->taintEngine->taintUnion(dst, cc_dep1);
+        expr->isTainted |= this->taintEngine->taintUnion(dst, cc_dep2);
+        expr->isTainted |= this->taintEngine->taintUnion(dst, cc_ndep);
+
+        /* Upate the symbolic control flow */
+        this->controlFlow_s(inst);
+
+        // throw triton::exceptions::Semantics("vexSemantics::helper_amd64g_calculate_condition_s(): Not implemented.");
+      }
+
       void vexSemantics::jump_boring_s(triton::arch::Instruction& inst) {
         auto pc  = triton::arch::OperandWrapper(TRITON_VEX_REG_PC);
         auto srcImm = triton::arch::OperandWrapper(Immediate(inst.getNextAddress(), pc.getSize()));
@@ -380,3 +536,4 @@ namespace triton {
   }; /* arch namespace */
 }; /* triton namespace */
 
+#undef UNUSED

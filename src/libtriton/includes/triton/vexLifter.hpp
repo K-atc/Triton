@@ -17,9 +17,10 @@ namespace triton {
     namespace intlibs {
         namespace vexlifter {
 
-#define VEX_IST_BASE 0x10000
-#define VEX_IEX_BASE 0x100
-#define VEX_IOP_BASE 0x1
+#define VEX_IST_BASE 0x100000
+#define VEX_IEX_BASE 0x1000
+#define VEX_IOP_BASE 0x10
+#define VEX_IJK_BASE 0x1
 
 typedef enum {
     Ist_Invalid = 0,
@@ -190,6 +191,7 @@ typedef struct : vex_expr {
     vex_expr args[8];
     int nargs = 0;
     vex_ir_endness endness = Iend_Invalid;
+    std::string cee;
 } vex_data;
 
 
@@ -205,6 +207,7 @@ typedef struct {
     vex_expr guard;
     int offsIP;
     vex_const dst;
+    std::string asmbytes;
     std::string disasm;
     vex_ir_endness endness = Iend_Invalid;
     vex_expr addr_expr;
@@ -224,6 +227,10 @@ typedef struct {
 
             constexpr triton::uint32 vex_itype(vex_tag_ist const &ist, vex_tag_iex const &iex, vex_abst_iop const &iop) {
                 return vex_itype(ist, iex) + iop * VEX_IOP_BASE;
+            }
+
+            constexpr unsigned int vex_itype(vex_tag_ist const &ist, vex_tag_iex const &iex, vex_ir_ijk const &ijk) {
+                return vex_itype(ist, iex) + ijk * VEX_IJK_BASE;
             }
 
             std::string vex_repr_itype(triton::uint32 type);

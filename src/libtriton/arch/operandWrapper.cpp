@@ -8,6 +8,8 @@
 #include <triton/exceptions.hpp>
 #include <triton/operandWrapper.hpp>
 
+#include <triton/logger.hpp>
+
 
 
 namespace triton {
@@ -134,6 +136,7 @@ namespace triton {
 
 
     triton::uint512 OperandWrapper::getConcreteValue(void) const {
+      triton::logger::info("OperandWrapper::getConcreteValue(): called");
       switch (this->getType()) {
         case triton::arch::OP_IMM: return this->getConstImmediate().getValue();
         case triton::arch::OP_MEM: return this->getConstMemory().getConcreteValue();

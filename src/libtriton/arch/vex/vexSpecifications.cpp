@@ -74,7 +74,7 @@ namespace triton {
           assert(bitSize % BYTE_SIZE_BIT == 0);
 
           if (offset < ID_REG_TMP) { // a query for virtual registers
-            snprintf(name, sizeof(name), "reg'(offset=0x%x,size=%d)", offset, bitSize);
+            snprintf(name, sizeof(name), "reg'(offset=%d,size=%d)", offset, bitSize);
             ret.setName(std::string(name));
             ret.setHigh(bitSize - 1);
             ret.setLow(0);

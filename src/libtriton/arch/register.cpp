@@ -81,7 +81,7 @@ namespace triton {
       triton::arch::RegisterSpecification regInfo;
 
       this->id = regId;
-      if (!triton::api.isRegisterValid(regId)) {
+      if (!triton::api.isRegisterValid(regId) && regId != triton::arch::INVALID_REGISTER_ID) { // ignore INVALID_REGISTER_ID
         this->id = triton::arch::INVALID_REGISTER_ID;
         // throw triton::exceptions::Register("Register::setup(): triton::api.isRegisterValid is false");
         triton::logger::warn("Register::setup(regId=0x%x): triton::api.isRegisterValid is false", regId);
@@ -162,6 +162,8 @@ namespace triton {
 
 
     void Register::setConcreteValue(triton::uint512 concreteValue) {
+      // triton::logger::info("Register::setConcreteValue: called");
+      // std::cout << "\tthis = " << this << std::endl << "\tconcreteValue = " << concreteValue << std::endl;
       if (concreteValue > this->getMaxValue())
         throw triton::exceptions::Register("Register::setConcreteValue(): You cannot set this concrete value (too big) to this register.");
 

@@ -41,7 +41,11 @@ endif()
 
 # Add Triton includes
 include_directories("${CMAKE_SOURCE_DIR}/src/libtriton/includes")
+include_directories("${CMAKE_SOURCE_DIR}/src/libtriton/includes/vex/pub")
+include_directories("${CMAKE_SOURCE_DIR}/src/libtriton/includes/vex/priv")
 include_directories("${CMAKE_BINARY_DIR}/src/libtriton/includes")
+include_directories("${CMAKE_BINARY_DIR}/src/libtriton/includes/vex/pub")
+include_directories("${CMAKE_BINARY_DIR}/src/libtriton/includes/vex/priv")
 
 # Define all source files
 set(LIBTRITON_SOURCE_FILES
