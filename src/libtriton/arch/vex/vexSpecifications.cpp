@@ -9,6 +9,7 @@
 #include <triton/cpuSize.hpp>
 #include <triton/externalLibs.hpp>
 #include <triton/vexSpecifications.hpp>
+#include <triton/exceptions.hpp>
 
 #include <triton/logger.hpp>
 
@@ -26,10 +27,11 @@ namespace triton {
 
       triton::arch::Register vex_reg_invalid = triton::arch::Register();
 
-      triton::arch::Register vex_regs    = triton::arch::Register(); // not used
+      // triton::arch::Register vex_regs    = triton::arch::Register(); // not used
       triton::arch::Register vex_tmp     = triton::arch::Register(); // not used
       triton::arch::Register vex_reg_pc  = triton::arch::Register();
 
+      triton::arch::Register vex_regs[ID_REG_TMP] = {triton::arch::Register()}; // dummy initialization
 
       vexSpecifications::vexSpecifications() {
       }
@@ -41,8 +43,10 @@ namespace triton {
       triton::arch::RegisterSpecification vexSpecifications::getVexRegisterSpecification(triton::uint32 arch, triton::uint32 regId) const {
         triton::arch::RegisterSpecification ret;
 
-        if (arch != triton::arch::ARCH_VEX)
+        if (arch != triton::arch::ARCH_VEX_X86_64) {
+          throw triton::exceptions::Cpu("vexSpecifications::getVexRegisterSpecification: Invalid architecture (maybe implementation error).");
           return ret;
+        }
 
         // triton::logger::info("vexSpecifications::getVexRegisterSpecification: regId = 0x%x", regId);
         // triton::logger::info("vexSpecifications::getVexRegisterSpecification: regId = 0x%x, offset=0x%x, size=%d", regId, offset, bitSize);
@@ -51,7 +55,7 @@ namespace triton {
         if (regId < ID_REG_TMP) { // a query for parent registers
           snprintf(name, sizeof(name), "reg(offset=%d)", regId);
           ret.setName(std::string(name));
-          ret.setHigh(QWORD_SIZE_BIT - 1); // FIXME: 
+          ret.setHigh(QWORD_SIZE_BIT - 1); // FIXME: use archinfo
           ret.setLow(0);
           ret.setParentId(regId); // reference to self
         }
@@ -74,7 +78,7 @@ namespace triton {
           assert(bitSize % BYTE_SIZE_BIT == 0);
 
           if (offset < ID_REG_TMP) { // a query for virtual registers
-            snprintf(name, sizeof(name), "reg'(offset=%d,size=%d)", offset, bitSize);
+            snprintf(name, sizeof(name), "reg'(offset=%d)", offset);
             ret.setName(std::string(name));
             ret.setHigh(bitSize - 1);
             ret.setLow(0);
@@ -94,7 +98,10 @@ namespace triton {
 
       triton::uint32 translatePairIDToRegID(triton::uint32 offset, triton::uint32 size) {
         assert(size > 0);
-        return offset + 0x10000 * static_cast<triton::uint32>(std::log2(size));
+        if (size == 1) size = 8; // Triton's AST cannot handle 1 bit register. So we have to up the size.
+        triton::uint32 ret = offset + 0x10000 * static_cast<triton::uint32>(std::log2(size));
+        assert(ret > ID_REG_LAST_ITEM);
+        return ret;
       }
 
       triton::uint32 translatePairIDToRegID(std::pair<triton::uint32, triton::uint32> pairId) {
@@ -102,7 +109,7 @@ namespace triton {
       }
 
       std::pair<triton::uint32, triton::uint32> translateRegIDToPairID(triton::uint32 regId) {
-        return std::make_pair(regId % 0x10000, 1 << (regId / 0x10000));
+        return std::make_pair(regId % 0x10000, 1 << ((regId / 0x10000)));
       }
 
       triton::uint32 translateTmpToRegID(triton::uint32 tmpId, triton::uint32 size) {

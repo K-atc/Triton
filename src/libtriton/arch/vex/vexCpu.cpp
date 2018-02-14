@@ -16,6 +16,8 @@
 #include <triton/vexCpu.hpp>
 #include <triton/vexLifter.hpp>
 
+#include <triton/api.hpp>
+
 #include <triton/logger.hpp>
 
 namespace triton {
@@ -55,13 +57,18 @@ namespace triton {
       void vexCpu::init(void) {
         /* Define registers ========================================================= */
         triton::arch::vex::vex_reg_invalid = triton::arch::Register(triton::arch::vex::ID_REG_INVALID);
-        triton::arch::vex::vex_regs    = triton::arch::Register(); // not used
         triton::arch::vex::vex_tmp     = triton::arch::Register(); // not used
         triton::arch::vex::vex_reg_pc  = triton::arch::Register(triton::arch::vex::translatePairIDToRegID(triton::arch::vex::ID_REG_RIP, this->registerBitSize())); // FIXME: use archinfo
+
+        // FIXME: use archinfo
+        for (triton::uint32 i = triton::arch::vex::ID_REG_INVALID + 4; i < triton::arch::vex::ID_REG_TMP; i += 4) {
+          triton::arch::vex::vex_regs[i] = triton::arch::Register(i);
+        }
 
         /* Clear concrete registers */
         std::memset((void *) this->cc_regs, 0x00, sizeof(this->cc_regs));
         std::memset((void *) this->cc_tmp, 0x00, sizeof(this->cc_tmp));
+
       }
 
 
@@ -112,64 +119,72 @@ namespace triton {
 
       bool vexCpu::isGPR(triton::uint32 regId) const {
         // return ((regId >= triton::arch::vex::ID_REG_EAX && regId <= triton::arch::vex::ID_REG_EFLAGS) ? true : false);
-        return false; // TODO: archinfo
+        return false; // TODO: use archinfo
       }
 
 
       bool vexCpu::isMMX(triton::uint32 regId) const {
         // return ((regId >= triton::arch::vex::ID_REG_MM0 && regId <= triton::arch::vex::ID_REG_MM7) ? true : false);
-        return false; // TODO: archinfo
+        return false; // TODO: use archinfo
       }
 
 
       bool vexCpu::isSSE(triton::uint32 regId) const {
         // return ((regId >= triton::arch::vex::ID_REG_MXCSR && regId <= triton::arch::vex::ID_REG_XMM7) ? true : false);
-        return false; // TODO: archinfo
+        return false; // TODO: use archinfo
       }
 
 
       bool vexCpu::isAVX256(triton::uint32 regId) const {
         // return ((regId >= triton::arch::vex::ID_REG_YMM0 && regId <= triton::arch::vex::ID_REG_YMM7) ? true : false);
-        return false; // TODO: archinfo
+        return false; // TODO: use archinfo
       }
 
 
       bool vexCpu::isControl(triton::uint32 regId) const {
         // return ((regId >= triton::arch::vex::ID_REG_CR0 && regId <= triton::arch::vex::ID_REG_CR15) ? true : false);
-        return false; // TODO: archinfo
+        return false; // TODO: use archinfo
       }
 
 
       bool vexCpu::isSegment(triton::uint32 regId) const {
         // return ((regId >= triton::arch::vex::ID_REG_CS && regId <= triton::arch::vex::ID_REG_SS) ? true : false);
-        return false; // TODO: archinfo
+        return false; // TODO: use archinfo
       }
 
 
       triton::uint32 vexCpu::numberOfRegisters(void) const {
         return triton::arch::vex::ID_REG_LAST_ITEM;
-        // return 0x11000; // FIXME (used by SymbolicEngine::SymbolicEngine)
       }
 
 
       triton::uint32 vexCpu::registerSize(void) const {
-        return QWORD_SIZE;
+        return QWORD_SIZE; // HACK: the larger, the better
       }
 
 
       triton::uint32 vexCpu::registerBitSize(void) const {
-        return QWORD_SIZE_BIT;
+        return QWORD_SIZE_BIT; // HACK: the larger, the better
       }
 
 
       triton::arch::RegisterSpecification vexCpu::getRegisterSpecification(triton::uint32 regId) const {
-        return this->getVexRegisterSpecification(triton::arch::ARCH_VEX, regId);
+        return this->getVexRegisterSpecification(triton::arch::ARCH_VEX_X86_64, regId); // FIXME: non-multi-arch-oriented implementation
       }
 
 
       std::set<triton::arch::Register*> vexCpu::getAllRegisters(void) const {
         std::set<triton::arch::Register*> ret;
-        ret.insert(&triton::arch::vex::vex_regs);
+
+        if (triton::api.getArchitecture() == triton::arch::ARCH_VEX_X86_64) {
+          for (triton::uint32 i = triton::arch::vex::ID_REG_INVALID + 1; i < triton::arch::vex::ID_REG_TMP; i++) {
+            ret.insert(&triton::arch::vex::vex_regs[i]);
+          }
+        }
+        else {
+          throw triton::exceptions::Cpu("vexCpu::getParentRegisters(): Unhandled architecture.");
+        }
+
         return ret;
       }
 
@@ -177,36 +192,19 @@ namespace triton {
       std::set<triton::arch::Register*> vexCpu::getParentRegisters(void) const {
         std::set<triton::arch::Register*> ret;
 
-        throw triton::exceptions::Cpu("vexCpu::getParentRegisters(): Not Implemented.");
-        #if 0
-        for (triton::uint32 index = 0; index < triton::arch::vex::ID_REG_LAST_ITEM; index++) {
-          /* Add GPR */
-          if (triton::arch::vex::vex_regs[index]->getSize() == this->registerSize())
-            ret.insert(triton::arch::vex::vex_regs[index]);
-
-          /* Add Flags */
-          else if (this->isFlag(triton::arch::vex::vex_regs[index]->getId()))
-            ret.insert(triton::arch::vex::vex_regs[index]);
-
-          /* Add MMX */
-          else if (this->isMMX(triton::arch::vex::vex_regs[index]->getId()))
-            ret.insert(triton::arch::vex::vex_regs[index]);
-
-          /* Add SSE */
-          else if (this->isSSE(triton::arch::vex::vex_regs[index]->getId()))
-            ret.insert(triton::arch::vex::vex_regs[index]);
-
-          /* Add AVX-256 */
-          else if (this->isAVX256(triton::arch::vex::vex_regs[index]->getId()))
-            ret.insert(triton::arch::vex::vex_regs[index]);
-
-          /* Add Control */
-          else if (this->isControl(triton::arch::vex::vex_regs[index]->getId()))
-            ret.insert(triton::arch::vex::vex_regs[index]);
+        if (triton::api.getArchitecture() == triton::arch::ARCH_VEX_X86_64) {
+          for (triton::uint32 i = triton::arch::vex::ID_REG_INVALID + 1; i < triton::arch::vex::ID_REG_TMP; i++) {
+            triton::arch::Register* reg = &triton::arch::vex::vex_regs[i];
+            if (reg->getId() == reg->getParent().getId())
+              ret.insert(reg);
+          }
         }
-        #endif
+        else {
+          throw triton::exceptions::Cpu("vexCpu::getParentRegisters(): Unhandled architecture.");
+        }
 
         return ret;
+
       }
 
       triton::uint32 vexCpu::translateVexTyToSize(triton::intlibs::vexlifter::vex_ir_ity ty) {
@@ -390,7 +388,7 @@ namespace triton {
             inst.setType(ID_AMD64G_CALCUATE_CONDITION);
           }
           else {
-            triton::logger::info(vex_insn.full.c_str());
+            // triton::logger::info(vex_insn.full.c_str());
             if (vex_insn.tag == triton::intlibs::vexlifter::Ist_Jump) {
               // triton::logger::info("jk st = %u, ex = %u, jk = %u", vex_insn.tag, vex_insn.data.tag, vex_insn.jumpkind);
               inst.setType(
@@ -475,6 +473,7 @@ namespace triton {
               break;
             } // case Ist_Store
             case triton::intlibs::vexlifter::Ist_WrTmp: {
+              // triton::logger::info("case Ist_WrTmp: vex_insn.data.result_size = %d, regId = %x", vex_insn.data.result_size, triton::arch::vex::translateTmpToRegID(vex_insn.tmp, vex_insn.data.result_size));
               auto reg = triton::arch::Register(
                 inst.getRegisterState(triton::arch::vex::translateTmpToRegID(vex_insn.tmp, vex_insn.data.result_size))
               );
@@ -622,12 +621,15 @@ namespace triton {
 
         triton::uint32 regId = reg.getId();
         triton::uint32 offset = translateRegIDToPairID(regId).first;
-        triton::logger::info("vexCpu::getConcreteRegisterValue(): offset = %u, reg.getBitSize() = %d", offset, reg.getBitSize());
-        std::cout << "\treg: " << reg << std::endl;
-        std::cout << "\tret: " << std::hex << triton::utils::fromBufferToUint<triton::uint64>(&(this->cc_regs[offset])) << std::endl;
+
+        // triton::logger::info("vexCpu::getConcreteRegisterValue(): offset = %u, reg.getBitSize() = %d", offset, reg.getBitSize());
+        // std::cout << "\treg: " << reg << std::endl;
+        // std::cout << "\tret: " << std::hex << triton::utils::fromBufferToUint<triton::uint64>(&(this->cc_regs[offset])) << std::endl;
+
         assert(reg.getBitSize() % BYTE_SIZE_BIT == 0);
         if (offset < triton::arch::vex::ID_REG_TMP) {
           switch (reg.getBitSize()) {
+            // case 1:   return this->cc_regs[offset] & 0x1; // Triton's AST cannot handle 1 bit register ;(
             case 8:   return this->cc_regs[offset];
             case 16:  return triton::utils::fromBufferToUint<triton::uint16>(&(this->cc_regs[offset]));
             case 32:  return triton::utils::fromBufferToUint<triton::uint32>(&(this->cc_regs[offset]));
@@ -641,6 +643,7 @@ namespace triton {
         }
         else {
           switch (reg.getBitSize()) {
+            // case 1:   return static_cast<triton::uint8>(this->cc_tmp[offset]) & 0x1; // Triton's AST cannot handle 1 bit register ;(
             case 8:   return static_cast<triton::uint8>(this->cc_tmp[offset]);
             case 16:  return static_cast<triton::uint16>(this->cc_tmp[offset]);
             case 32:  return static_cast<triton::uint32>(this->cc_tmp[offset]);
@@ -656,6 +659,7 @@ namespace triton {
 
 
       void vexCpu::setConcreteMemoryValue(triton::uint64 addr, triton::uint8 value) {
+        triton::logger::info("vexCpu::setConcreteMemoryValue(addr=0x%x, value=0x%x)", addr, value);
         this->memory[addr] = value;
       }
 
@@ -664,6 +668,8 @@ namespace triton {
         triton::uint64 addr = mem.getAddress();
         triton::uint32 size = mem.getSize();
         triton::uint512 cv  = mem.getConcreteValue();
+
+        triton::logger::info("vexCpu::setConcreteMemoryValue(mem{addr=0x%x, size=%d, value=0x%x})", addr, size, (unsigned long int) cv);
 
         if (size == 0 || size > DQQWORD_SIZE)
           throw triton::exceptions::Cpu("vexCpu::setConcreteMemoryValue(): Invalid size memory.");
@@ -699,8 +705,8 @@ namespace triton {
         triton::uint32 regSize = reg.getSize();
 
         triton::uint32 offset = translateRegIDToPairID(reg.getId()).first;
-        triton::logger::info("vexCpu::setConcreteRegisterValue: offset = %d, regSize = %d", offset, regSize);
-        std::cout << "\tvalue = 0x" << std::hex << value << std::endl;
+        // triton::logger::info("vexCpu::setConcreteRegisterValue: offset = %d, regSize = %d", offset, regSize);
+        // std::cout << "\tvalue = 0x" << std::hex << value << std::endl;
         if (offset < triton::arch::vex::ID_REG_TMP) {
           switch (regSize) {
             case BYTE_SIZE:     this->cc_regs[offset]  = value.convert_to<triton::uint8>(); break;
@@ -728,7 +734,6 @@ namespace triton {
           }
         }
         assert(getConcreteRegisterValue(reg, false) == value);
-        // std::cout << "\tresult: 0x" << std::hex << getConcreteRegisterValue(reg, false) << std::endl;
       }
 
 

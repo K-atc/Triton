@@ -42,7 +42,10 @@ namespace triton {
       ARCH_INVALID = 0, /*!< invalid architecture. */
       ARCH_X86,         /*!< x86 architecture. */
       ARCH_X86_64,      /*!< x86_64 architecture. */
-      ARCH_VEX,         /*!< vex (VexIR-based) architecture. */
+      ARCH_VEX_X86,     /*!< FUTURE WORK; mixed architecture; vex (VexIR-based) and x86. */
+      ARCH_VEX_X86_64,  /*!< mixed architecture; vex (VexIR-based) and x86_64. */
+      ARCH_VEX_ARM32,   /*!< FUTURE WORK; mixed architecture; vex (VexIR-based) and ARM 32-bit. */
+      ARCH_VEX_ARM64,   /*!< FUTURE WORK; mixed architecture; vex (VexIR-based) and ARM 64-bit. */
       ARCH_LAST_ITEM    /*!< must be the last item.  */
     };
 

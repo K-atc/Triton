@@ -13,6 +13,7 @@
 #include <triton/x86Cpu.hpp>
 #include <triton/vexCpu.hpp>
 
+#include <triton/logger.hpp>
 
 namespace triton {
   namespace arch {
@@ -61,13 +62,16 @@ namespace triton {
           this->cpu->init();
           break;
 
-        case triton::arch::ARCH_VEX:
+        case triton::arch::ARCH_VEX_X86_64:
           /* init the new instance */
+          triton::logger::info("Initializing triton::arch::vex::vexCpu");
           this->cpu.reset(new(std::nothrow) triton::arch::vex::vexCpu(this->callbacks));
           if (this->cpu == nullptr)
             throw triton::exceptions::Architecture("Architecture::setArchitecture(): Not enough memory.");
           this->cpu->init();
           break;
+        default:
+          throw triton::exceptions::Architecture("Architecture::setArchitecture(): Unhandled architecture.");
       }
     }
 

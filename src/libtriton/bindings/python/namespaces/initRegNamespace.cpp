@@ -642,6 +642,11 @@ namespace triton {
             PyDict_SetItemString(triton::bindings::python::registersDict, "ZF",     PyRegister(TRITON_X86_REG_ZF,     0x00, triton::arch::IMMUTABLE_REGISTER));
             PyDict_SetItemString(triton::bindings::python::registersDict, "ZM",     PyRegister(TRITON_X86_REG_ZM,     0x00, triton::arch::IMMUTABLE_REGISTER));
             break;
+
+          case triton::arch::ARCH_VEX_X86_64:
+            PyDict_SetItemString(triton::bindings::python::registersDict, "RAX",    PyRegister(triton::arch::Register(triton::arch::x86::ID_REG_RAX),    0x00, triton::arch::IMMUTABLE_REGISTER));
+            PyDict_SetItemString(triton::bindings::python::registersDict, "RSP",    PyRegister(triton::arch::Register(triton::arch::x86::ID_REG_RIP),    0x00, triton::arch::IMMUTABLE_REGISTER));
+            break;
         } /* switch */
 
       }

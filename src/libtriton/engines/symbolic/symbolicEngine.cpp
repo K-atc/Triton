@@ -811,7 +811,7 @@ namespace triton {
 
         // triton::logger::info("SymbolicEngine::buildSymbolicRegister: symReg = %d, bvSize = %d, high = %d, low = %d", symReg, bvSize, high, low);
         // std::cout << "\treg: " << reg << std::endl;
-        assert(bvSize % BYTE_SIZE_BIT == 0);
+        // assert(bvSize % BYTE_SIZE_BIT == 0);
 
         /* Check if the register is already symbolic */
         if (symReg != triton::engines::symbolic::UNSET)

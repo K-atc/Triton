@@ -163,7 +163,10 @@ namespace triton {
 
     void Register::setConcreteValue(triton::uint512 concreteValue) {
       // triton::logger::info("Register::setConcreteValue: called");
-      // std::cout << "\tthis = " << this << std::endl << "\tconcreteValue = " << concreteValue << std::endl;
+      // std::cout << "\tthis = " << this << " (regId = " << std::hex << this->id << ")" << std::endl << "\tconcreteValue = " << concreteValue << std::dec << std::endl;
+      if (this->getId() == triton::arch::INVALID_REGISTER_ID)
+        throw triton::exceptions::Register("Register::setConcreteValue(): Passed invalid register.");
+
       if (concreteValue > this->getMaxValue())
         throw triton::exceptions::Register("Register::setConcreteValue(): You cannot set this concrete value (too big) to this register.");
 

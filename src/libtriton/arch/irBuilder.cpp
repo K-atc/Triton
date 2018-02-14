@@ -111,7 +111,7 @@ namespace triton {
         case triton::arch::ARCH_X86_64:
           ret = this->x86Isa->buildSemantics(inst);
           break;
-        case triton::arch::ARCH_VEX:
+        case triton::arch::ARCH_VEX_X86_64:
           ret = this->vexIsa->buildSemantics(inst);
           break;
         default:
@@ -136,7 +136,7 @@ namespace triton {
         case triton::arch::ARCH_X86_64:
           ret = buildSemanticsDo(inst);
           break;
-        case triton::arch::ARCH_VEX: {
+        case triton::arch::ARCH_VEX_X86_64: {
           for (auto &ir_inst : inst.ir) {
             ret |= buildSemanticsDo(ir_inst);
           }
@@ -158,7 +158,6 @@ namespace triton {
         default:
           throw triton::exceptions::IrBuilder("IrBuilder::buildSemantics(): Unhandled architecture.");
       }
-      triton::logger::info("IrBuilder::buildSemantics(): end");
 
       return ret;
     }

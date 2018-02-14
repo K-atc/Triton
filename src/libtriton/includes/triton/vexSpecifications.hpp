@@ -39,9 +39,9 @@ namespace triton {
       extern triton::arch::Register vex_reg_invalid;
 
       //! Symbolic Registers
-      extern triton::arch::Register vex_regs;
       extern triton::arch::Register vex_tmp;
       extern triton::arch::Register vex_reg_pc;
+
 
       //! \class vexSpecifications
       /*! \brief The vexSpecifications class defines specifications about the vex and vex_64 CPU */
@@ -63,7 +63,7 @@ namespace triton {
         ID_REG_INVALID = 0, //!< invalid = 0
 
         // general registers here
-        ID_REG_RIP = 184,
+        ID_REG_RIP = 184, // FIXME: use archinfo, non-multiarch-oriented
 
         // tmp registers here
         ID_REG_TMP = 0x400,
@@ -72,6 +72,9 @@ namespace triton {
         /* Must be the last item */
         ID_REG_LAST_ITEM = 0x1000 //!< must be the last item
       };
+
+      //! Global set of registers.
+      extern triton::arch::Register vex_regs[ID_REG_TMP];
 
       //! The list of opcodes.
       enum instructions_e {

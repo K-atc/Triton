@@ -2,6 +2,7 @@
 from triton import *
 from unicorn_tracer import *
 from sys import argv
+import archinfo
 
 syscall_table = {
     0: ("sys_read", 3),
@@ -10,6 +11,9 @@ syscall_table = {
     3: ("sys_close", 1),
     60: ("sys_exit", 1),
 }
+
+def user_logger(msg):
+    print '[user:info] ' + str(msg)
 
 def abs_addr(rel_addr):
     return rel_addr - 0x400080 + 0x100000
@@ -29,12 +33,13 @@ def handle_syscall(thread_id, syscall_no):
 
 def mycb(inst):
     global argv1, known_flag
+    print("\n")
     if False:
         print "~" * 8
         print inst
         for expr in inst.getSymbolicExpressions():
             print "\t" + str(expr)
-        print "rax: %#x" % getConcreteRegisterValue(REG.RAX)
+        print "rax: %#x" % getConcreteRegisterValue(REG_RAX)
         print
 
     succ_addr = abs_addr(0x4000d6)
@@ -46,44 +51,55 @@ def mycb(inst):
         exit(0)
     if pc == fail_addr:
         pco = getPathConstraints()
-        print pco
         ans = []
-        for pc in pco:
+        for i, pc in enumerate(pco):
             if pc.isMultipleBranches():
-                # print "takenAdress = %#x (%#x)" % (pc.getTakenAddress(), rel_addr(pc.getTakenAddress()))
+                print "#%d: takenAdress = %#x (%#x)" % (i, pc.getTakenAddress(), rel_addr(pc.getTakenAddress()))
                 if pc.getTakenAddress() in [fail_addr]:
                     # b1 = pc.getBranchConstraints()[0]['constraint']
                     b2 = pc.getBranchConstraints()[1]['constraint']
                     # print "b1: " + str(b1)
                     print "b2: " + str(b2)
-                    # # Branch 1 (True Branch; Jump taken Branch)
-                    # ans = []
-                    # models = getModel(ast.assert_(b1))
-                    # for k, v in models.items():
-                    #     symvar = getSymbolicVariableFromId(v.getId())
-                    #     print "%s (%s) = %#x" % (v.getName(), symvar.getComment(), v.getValue())
-                    #     ans += [v.getValue()]
-                    # print "[user:info] " + ''.join([chr(x) for x in ans])
+                    # print "b2.childs: \n" + '\n'.join(['\t' + str(x) for x in b2.getChilds()])
+                    print "b2.isSymbolized(): " + str(b2.isSymbolized())
+
+                    import ipdb; ipdb.set_trace()
+
                     # Branch 2 (False Branch; Jump not-taken Branch)
+                    ### (error "line 1 column 935: Sorts Bool and (_ BitVec 1) are incompatible")
                     models = getModel(ast.assert_(b2))
-                    for k, v in models.items():
-                        symvar = getSymbolicVariableFromId(v.getId())
-                        print "%s (%s) = %#x" % (v.getName(), symvar.getComment(), v.getValue())
-                        ans += [v.getValue()]
-                    print "[user:info] " + ''.join([chr(x) for x in ans])
+                    # models = getModel(ast.assert_(ast.equal(ast.bvtrue(), ast.bvtrue()))) # no problem
+                    if len(models.items()) > 0:
+                        for k, v in models.items():
+                            symvar = getSymbolicVariableFromId(v.getId())
+                            print "%s (%s) = %#x" % (v.getName(), symvar.getComment(), v.getValue())
+                            ans += [v.getValue()]
+                        print "[user:info] " + ''.join([chr(x) for x in ans])
         exit(1)
     return
 
 if __name__ == '__main__':
     global argv1, known_flag
+    global REG_RDI, REG_RSI, REG_RDX, REG_RAX, REG_RSP
     argv1_ptr = 0x7f0000
     argv1 = 0x400000
 
+    # Setup argv
     argv = argv[2:]
-    print '[user:info] ' + str(argv)
+    user_logger(str(argv))
 
     # Set arch
-    setArchitecture(ARCH.X86_64)
+    setArchitecture(ARCH.VEX_X86_64)
+
+    # Generate registers
+    ai = archinfo.ArchAMD64()
+    REG_RDI = Register(ai.registers["rdi"][0], 0)
+    REG_RSI = Register(ai.registers["rsi"][0], 0)
+    REG_RDX = Register(ai.registers["rdx"][0], 0)
+    REG_RAX = Register(ai.registers["rax"][0], 0)
+    REG_RSP = Register(ai.registers["rsp"][0], 0)
+
+    # import ipdb; ipdb.set_trace()
 
     enableMode(MODE.PC_TRACKING_SYMBOLIC, False)
 
@@ -100,6 +116,7 @@ if __name__ == '__main__':
     insertCall(handle_syscall, INSERT_POINT.SYSCALL_ENTRY)
 
     # Fake stack
+    print(REG.RSP)
     setCurrentRegisterValue(REG.RSP, argv1_ptr - 0x18)
     setConcreteMemoryValue(MemoryAccess(argv1_ptr, CPUSIZE.DWORD, argv1)) # mov dword [argv1_ptr], argv1
 

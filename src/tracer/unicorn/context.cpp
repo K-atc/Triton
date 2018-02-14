@@ -12,6 +12,8 @@
 #include <triton/cpuSize.hpp>
 #include <triton/coreUtils.hpp>
 #include <triton/x86Specifications.hpp>
+#include <triton/vexSpecifications.hpp>
+#include <triton/api.hpp> // to get current architecture
 
 #include "bindings.hpp"
 #include "context.hpp"
@@ -28,8 +30,11 @@ namespace tracer {
       triton::uint512 getCurrentRegisterValue(const triton::arch::Register& reg) {
         triton::uint8 buffer[DQQWORD_SIZE] = {0};
         triton::uint512 value = 0;
+        auto currentArch = triton::api.getArchitecture();
+        triton::arch::Register syncReg;
 
         #if defined(__x86_64__) || defined(_M_X64)
+        if (currentArch == triton::arch::ARCH_X86_64) {
           switch (reg.getParent().getId()) {
             case triton::arch::x86::ID_REG_RAX:     UC_GetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_RAX,    reinterpret_cast<triton::uint8*>(buffer)); break;
             case triton::arch::x86::ID_REG_RBX:     UC_GetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_RBX,    reinterpret_cast<triton::uint8*>(buffer)); break;
@@ -155,17 +160,19 @@ namespace tracer {
               break;
           }
 
-        /* Sync with the libTriton */
-        triton::arch::Register syncReg;
-        if (reg.getId() >= triton::arch::x86::ID_REG_AF && reg.getId() <= triton::arch::x86::ID_REG_ZF)
-          syncReg = TRITON_X86_REG_EFLAGS;
-        // else if (reg.getId() >= triton::arch::x86::ID_REG_IE && reg.getId() <= triton::arch::x86::ID_REG_FZ)
-        //   syncReg = TRITON_X86_REG_MXCSR;
-        else
-          syncReg = reg.getParent();
+          /* Sync with the libTriton */
+          // triton::arch::Register syncReg;
+          if (reg.getId() >= triton::arch::x86::ID_REG_AF && reg.getId() <= triton::arch::x86::ID_REG_ZF)
+            syncReg = TRITON_X86_REG_EFLAGS;
+          // else if (reg.getId() >= triton::arch::x86::ID_REG_IE && reg.getId() <= triton::arch::x86::ID_REG_FZ)
+          //   syncReg = TRITON_X86_REG_MXCSR;
+          else
+            syncReg = reg.getParent();
+        }
         #endif
 
         #if defined(__i386) || defined(_M_IX86)
+        if (currentArch == triton::arch::ARCH_X86) {
           switch (reg.getParent().getId()) {
             case triton::arch::x86::ID_REG_EAX:     UC_GetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_EAX,    reinterpret_cast<triton::uint8*>(buffer)); break;
             case triton::arch::x86::ID_REG_EBX:     UC_GetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_EBX,    reinterpret_cast<triton::uint8*>(buffer)); break;
@@ -235,15 +242,36 @@ namespace tracer {
               break;
           }
 
-        /* Sync with the libTriton */
-        triton::arch::Register syncReg;
-        if (reg.getId() >= triton::arch::x86::ID_REG_AF && reg.getId() <= triton::arch::x86::ID_REG_ZF)
-          syncReg = TRITON_X86_REG_EFLAGS;
-        // else if (reg.getId() >= triton::arch::x86::ID_REG_IE && reg.getId() <= triton::arch::x86::ID_REG_FZ)
-        //   syncReg = TRITON_X86_REG_MXCSR;
-        else
-          syncReg = reg.getParent();
+          /* Sync with the libTriton */
+          if (reg.getId() >= triton::arch::x86::ID_REG_AF && reg.getId() <= triton::arch::x86::ID_REG_ZF)
+            syncReg = TRITON_X86_REG_EFLAGS;
+          // else if (reg.getId() >= triton::arch::x86::ID_REG_IE && reg.getId() <= triton::arch::x86::ID_REG_FZ)
+          //   syncReg = TRITON_X86_REG_MXCSR;
+          else
+            syncReg = reg.getParent();
+        }
         #endif
+
+        if (currentArch == triton::arch::ARCH_VEX_X86_64) {
+          triton::logger::info("tracer::unicorn::context::getCurrentRegisterValue(): regId = 0x%x, parentId = 0x%x (%d)", reg.getId(), reg.getParent().getId(), reg.getParent().getId());
+
+          // Do not fetch value from unicorn. Fetch from Triton
+          if (reg.getParent().getId() >= triton::arch::vex::ID_REG_TMP)
+            throw std::runtime_error("tracer::unicorn::context::getCurrentRegisterValue(): Do not pass tmp register.");
+
+          // FIXME: use archinfo
+          switch (reg.getParent().getId()) {
+            case  16:   UC_GetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_RAX,    reinterpret_cast<triton::uint8*>(buffer)); break;
+            case  48:   UC_GetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_RSP,    reinterpret_cast<triton::uint8*>(buffer)); break;
+            case 144:   triton::logger::warn("tracer::unicorn::context::getCurrentRegisterValue(): ommiting cc_op"); return 0; // cc_op; not care
+            case 152:   triton::logger::warn("tracer::unicorn::context::getCurrentRegisterValue(): ommiting cc_dep1"); return 0; // cc_dep1: not care
+            case 160:   triton::logger::warn("tracer::unicorn::context::getCurrentRegisterValue(): ommiting cc_dep2"); return 0; // cc_dep2: not care
+            case 168:   triton::logger::warn("tracer::unicorn::context::getCurrentRegisterValue(): ommiting cc_ndep"); return 0; // cc_ndep: not care
+          default:
+            throw std::runtime_error("tracer::unicorn::context::getCurrentRegisterValue(): Invalid register.");
+          }
+          syncReg = reg.getParent();
+        }
 
         value = triton::utils::fromBufferToUint<triton::uint512>(buffer);
         syncReg.setConcreteValue(value);
@@ -294,6 +322,10 @@ namespace tracer {
 
 
       void setCurrentRegisterValue(triton::arch::Register& reg, triton::uint512 value) {
+        std::ostringstream str;
+        str << "setCurrentRegisterValue(reg = " << reg << ", value = " << value;
+        triton::logger::info(str.str().c_str());
+
         triton::uint8 buffer[DQQWORD_SIZE] = {0};
 
         if (reg.getId() != reg.getParent().getId() || triton::api.isFlag(reg))
@@ -469,13 +501,23 @@ namespace tracer {
 
 
       void needConcreteRegisterValue(triton::arch::Register& reg) {
-        triton::uint512 value = tracer::unicorn::context::getCurrentRegisterValue(reg);
-        triton::arch::Register tmp(reg.getId(), value);
-        triton::api.setConcreteRegisterValue(tmp);
+        triton::logger::info("needConcreteRegisterValue()");
+        std::cout << "\treg = " << reg << std::endl;
+        triton::uint512 value = 0;
+        if (triton::api.getArchitecture() == triton::arch::ARCH_VEX_X86_64 && reg.getParent().getId()) {
+          // value = triton::api.getConcreteRegisterValue(reg); // DANGER: causes infinite needConcreteRegisterValue() call
+          return; // There's nothing to do. Do immediate return!
+        }
+        else {
+          value = tracer::unicorn::context::getCurrentRegisterValue(reg);
+          triton::arch::Register tmp(reg.getId(), value);
+          triton::api.setConcreteRegisterValue(tmp);
+        }
       }
 
 
       void synchronizeContext(void) {
+        triton::logger::info("synchronizeContext()");
         if (triton::api.isSymbolicEngineEnabled() == false)
           return;
 
