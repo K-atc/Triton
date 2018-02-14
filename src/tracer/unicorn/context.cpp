@@ -323,7 +323,7 @@ namespace tracer {
 
       void setCurrentRegisterValue(triton::arch::Register& reg, triton::uint512 value) {
         std::ostringstream str;
-        str << "setCurrentRegisterValue(reg = " << reg << ", value = " << value;
+        str << "setCurrentRegisterValue(reg = \'" << reg << "\', value = 0x" << std::hex << value << ")" << std::dec;
         triton::logger::info(str.str().c_str());
 
         triton::uint8 buffer[DQQWORD_SIZE] = {0};
@@ -501,18 +501,22 @@ namespace tracer {
 
 
       void needConcreteRegisterValue(triton::arch::Register& reg) {
-        triton::logger::info("needConcreteRegisterValue()");
-        std::cout << "\treg = " << reg << std::endl;
         triton::uint512 value = 0;
-        if (triton::api.getArchitecture() == triton::arch::ARCH_VEX_X86_64 && reg.getParent().getId()) {
-          // value = triton::api.getConcreteRegisterValue(reg); // DANGER: causes infinite needConcreteRegisterValue() call
-          return; // There's nothing to do. Do immediate return!
+        auto parentRegid = reg.getParent().getId();
+
+        if (triton::api.getArchitecture() == triton::arch::ARCH_VEX_X86_64) {
+            if (parentRegid == triton::arch::vex::ID_REG_INVALID || parentRegid >= triton::arch::vex::ID_REG_TMP) {
+              triton::logger::info("needConcreteRegisterValue(): immediate return");
+              // value = triton::api.getConcreteRegisterValue(reg); // DANGER: causes infinite needConcreteRegisterValue() call
+              return; // There's nothing to do. Do immediate return!
+            }
         }
-        else {
-          value = tracer::unicorn::context::getCurrentRegisterValue(reg);
-          triton::arch::Register tmp(reg.getId(), value);
-          triton::api.setConcreteRegisterValue(tmp);
-        }
+
+        triton::logger::info("needConcreteRegisterValue() -> tracer::unicorn::context::getCurrentRegisterValue(reg)");
+        std::cout << "\treg = " << reg << std::endl;
+        value = tracer::unicorn::context::getCurrentRegisterValue(reg);
+        triton::arch::Register tmp(reg.getId(), value);
+        triton::api.setConcreteRegisterValue(tmp);
       }
 
 

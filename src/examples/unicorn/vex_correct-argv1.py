@@ -39,7 +39,7 @@ def mycb(inst):
         print inst
         for expr in inst.getSymbolicExpressions():
             print "\t" + str(expr)
-        print "rax: %#x" % getConcreteRegisterValue(REG_RAX)
+        print "rax.getConcreteRegisterValue(): %#x" % getConcreteRegisterValue(REG_RAX)
         print
 
     succ_addr = abs_addr(0x4000d6)
@@ -54,27 +54,38 @@ def mycb(inst):
         ans = []
         for i, pc in enumerate(pco):
             if pc.isMultipleBranches():
-                print "#%d: takenAdress = %#x (%#x)" % (i, pc.getTakenAddress(), rel_addr(pc.getTakenAddress()))
+                user_logger("#%d: takenAdress = %#x (%#x)" % (i, pc.getTakenAddress(), rel_addr(pc.getTakenAddress())))
                 if pc.getTakenAddress() in [fail_addr]:
-                    # b1 = pc.getBranchConstraints()[0]['constraint']
+                    b1 = pc.getBranchConstraints()[0]['constraint']
                     b2 = pc.getBranchConstraints()[1]['constraint']
-                    # print "b1: " + str(b1)
-                    print "b2: " + str(b2)
-                    # print "b2.childs: \n" + '\n'.join(['\t' + str(x) for x in b2.getChilds()])
-                    print "b2.isSymbolized(): " + str(b2.isSymbolized())
+                    user_logger("b1: " + str(b1))
+                    user_logger("b2: " + str(b2))
+                    user_logger("b1.isSymbolized(): " + str(b1.isSymbolized()))
+                    user_logger("b2.isSymbolized(): " + str(b2.isSymbolized()))
 
-                    import ipdb; ipdb.set_trace()
+                    # import ipdb; ipdb.set_trace()
 
-                    # Branch 2 (False Branch; Jump not-taken Branch)
-                    ### (error "line 1 column 935: Sorts Bool and (_ BitVec 1) are incompatible")
-                    models = getModel(ast.assert_(b2))
-                    # models = getModel(ast.assert_(ast.equal(ast.bvtrue(), ast.bvtrue()))) # no problem
+                    # Branch 1 (False Branch; Jump ???-taken Branch)
+                    models = getModel(ast.assert_(b1))
                     if len(models.items()) > 0:
                         for k, v in models.items():
                             symvar = getSymbolicVariableFromId(v.getId())
                             print "%s (%s) = %#x" % (v.getName(), symvar.getComment(), v.getValue())
                             ans += [v.getValue()]
-                        print "[user:info] " + ''.join([chr(x) for x in ans])
+                        user_logger(''.join([chr(x) for x in ans]))
+                    else:
+                        user_logger("no solutions")
+
+                    # Branch 2 (False Branch; Jump ???-taken Branch)
+                    models = getModel(ast.assert_(b2))
+                    if len(models.items()) > 0:
+                        for k, v in models.items():
+                            symvar = getSymbolicVariableFromId(v.getId())
+                            print "%s (%s) = %#x" % (v.getName(), symvar.getComment(), v.getValue())
+                            ans += [v.getValue()]
+                        user_logger(''.join([chr(x) for x in ans]))
+                    else:
+                        user_logger("no solutions")
         exit(1)
     return
 
@@ -124,8 +135,6 @@ if __name__ == '__main__':
     setCurrentRegisterValue(REG.RAX, argv1)
     for offset in range(4 * 4):
         convertMemoryToSymbolicVariable(MemoryAccess(argv1 + offset, CPUSIZE.BYTE))
-    # for i in range(8):
-    #     setConcreteMemoryValue(MemoryAccess(argv1 + i, CPUSIZE.BYTE, ord("flag{it\'s"[i])))
     known_flag = ""
     if len(argv) > 1:
         known_flag = argv[1]

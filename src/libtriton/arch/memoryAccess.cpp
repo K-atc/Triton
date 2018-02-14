@@ -9,6 +9,7 @@
 #include <triton/exceptions.hpp>
 #include <triton/memoryAccess.hpp>
 
+#include <triton/logger.hpp>
 
 
 namespace triton {
@@ -166,6 +167,8 @@ namespace triton {
 
 
     void MemoryAccess::setAddress(triton::uint64 addr) {
+      triton::logger::info("MemoryAccess::setAddress: addr = 0x%x", addr);
+      // asm volatile("int3");
       this->address = addr;
     }
 

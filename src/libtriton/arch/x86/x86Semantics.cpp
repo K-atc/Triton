@@ -346,6 +346,15 @@ namespace triton {
 
 
       bool x86Semantics::buildSemantics(triton::arch::Instruction& inst) {
+
+        /* for debugging */
+        for (unsigned int op_index = 0; op_index != inst.operands.size(); op_index++) {
+          std::cout << "\tOperand " << op_index << ": " << inst.operands[op_index] << std::endl;
+          if (inst.operands[op_index].getType() == OP_MEM) {
+            std::cout << "\t   base  : " << inst.operands[op_index].getMemory().getBaseRegister() << std::endl;
+          }
+        }
+
         switch (inst.getType()) {
           case ID_INS_AAD:            this->aad_s(inst);          break;
           case ID_INS_ADC:            this->adc_s(inst);          break;

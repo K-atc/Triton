@@ -597,6 +597,8 @@ namespace triton {
         triton::uint32 symVarSize       = mem.getSize();
         triton::uint512 cv              = mem.hasConcreteValue() ? mem.getConcreteValue() : this->architecture->getConcreteMemoryValue(mem);
 
+        assert(memAddr > 0);
+
         memSymId = this->getSymbolicMemoryId(memAddr);
 
         /* First we create a symbolic variable */
@@ -748,6 +750,8 @@ namespace triton {
         triton::uint8 concreteValue[DQQWORD_SIZE] = {0};
         triton::uint512 value                     = this->architecture->getConcreteMemoryValue(mem);
 
+        assert(address > 0);
+
         triton::utils::fromUintToBuffer(value, concreteValue);
 
         /*
@@ -794,6 +798,7 @@ namespace triton {
 
       /* Returns a symbolic memory and defines the memory as input of the instruction */
       triton::ast::AbstractNode* SymbolicEngine::buildSymbolicMemory(triton::arch::Instruction& inst, triton::arch::MemoryAccess& mem) {
+        std::cout << "SymbolicEngine::buildSymbolicMemory: mem: " << mem << std::endl;
         triton::ast::AbstractNode* node = this->buildSymbolicMemory(mem);
         mem.setConcreteValue(node->evaluate());
         inst.setLoadAccess(mem, node);
@@ -1141,6 +1146,7 @@ namespace triton {
                                                   )
                                                 );
 
+          triton::logger::info("SymbolicEngine::initLeaAst():");
 
           /* Initialize the AST of the memory access (LEA) -> ((pc + base) + (index * scale) + disp) */
           auto leaAst = triton::ast::bvadd(

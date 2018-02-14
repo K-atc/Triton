@@ -67,10 +67,8 @@ namespace triton {
     bool IrBuilder::buildSemanticsDo(triton::arch::Instruction& inst) {
       bool ret = false;
 
-      /* Stage 1 - Update the context memory */
-      // triton::logger::info("----------------");
-
-      // /* for debugging */
+      // // /* for debugging */
+      // triton::logger::info("IrBuilder::buildSemanticsDo():");
       // for (unsigned int op_index = 0; op_index != inst.operands.size(); op_index++) {
       //   std::cout << "\tOperand " << op_index << ": " << inst.operands[op_index] << std::endl;
       //   if (inst.operands[op_index].getType() == OP_MEM) {
@@ -78,25 +76,25 @@ namespace triton {
       //   }
       // }
 
-      // triton::logger::info("Stage 1 - Update the context memory");
+      /* Stage 1 - Update the context memory */
+      /* NOTE: inst.registerState is given by user using Instruction::updateContext */
       std::list<triton::arch::MemoryAccess>::iterator it1;
       for (it1 = inst.memoryAccess.begin(); it1 != inst.memoryAccess.end(); it1++) {
         this->architecture->setConcreteMemoryValue(*it1);
       }
 
       /* Stage 2 - Update the context register */
-      // triton::logger::info("Stage 2 - Update the context register");
+      /* NOTE: inst.memoryAccess is given by user using Instruction::updateContext */
       std::map<triton::uint32, triton::arch::Register>::iterator it2;
       for (it2 = inst.registerState.begin(); it2 != inst.registerState.end(); it2++) {
         this->architecture->setConcreteRegisterValue(it2->second);
       }
 
       /* Stage 3 - Initialize the target address of memory operands */
-      // triton::logger::info("Stage 3 - Initialize the target address of memory operands");
       std::vector<triton::arch::OperandWrapper>::iterator it3;
       for (it3 = inst.operands.begin(); it3 != inst.operands.end(); it3++) {
         if (it3->getType() == triton::arch::OP_MEM) {
-          this->symbolicEngine->initLeaAst(it3->getMemory());
+          this->symbolicEngine->initLeaAst(it3->getMemory()); // NOTE: calls mem.setAddress()
         }
       }
 
@@ -105,7 +103,6 @@ namespace triton {
       this->preIrInit(inst);
 
       /* Processing */
-      // triton::logger::info("Processing");
       switch (this->architecture->getArchitecture()) {
         case triton::arch::ARCH_X86:
         case triton::arch::ARCH_X86_64:
@@ -137,22 +134,10 @@ namespace triton {
           ret = buildSemanticsDo(inst);
           break;
         case triton::arch::ARCH_VEX_X86_64: {
-          for (auto &ir_inst : inst.ir) {
+          assert(inst.ir.size() > 0);
+          for (triton::arch::Instruction &ir_inst : inst.ir) {
             ret |= buildSemanticsDo(ir_inst);
           }
-#if 0
-          // clear all symbolic tmp for this block
-          for (triton::uint32 i = triton::arch::vex::ID_REG_TMP + 1; i < triton::arch::vex::ID_REG_LAST_ITEM; i++){
-            // auto bitSize = (1 << triton::arch::vex::translateRegIDToTmp(i).second);
-            auto bitSize = 1 << (i % 0x10);
-            triton::logger::info("(i, bitSize) = (%x, %d)", i, bitSize);
-            assert(bitSize == 1 << (i % 0x10));
-            if (BYTE_SIZE_BIT <= bitSize && bitSize <= MAX_BITS_SUPPORTED) {
-              triton::logger::info("bitSize = %d", bitSize);
-              this->symbolicEngine->concretizeRegister(triton::arch::Register(i));
-            }
-          }
-#endif
           break;
         }
         default:

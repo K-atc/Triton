@@ -93,8 +93,8 @@ namespace triton {
           case vex_itype(Ist_Exit, Ijk_Boring):
             this->exit_s(inst); break;
           case vex_itype(Ist_Jump):             // TODO; Ijk_Syscall, etc.
-          case vex_itype(Ist_Jump, Ijk_Boring): // TODO; Ijk_Syscall, etc.
-            this->jump_boring_s(inst); break;
+          case vex_itype(Ist_Jump, Iex_Const, Ijk_Boring):
+            this->mov_s(inst); break;
           case vex_itype(Ist_Put, Iex_Const): // mov_s
           case vex_itype(Ist_Put, Iex_RdTmp): // mov_s
           case vex_itype(Ist_Store, Iex_RdTmp): // mov_s
@@ -266,21 +266,17 @@ namespace triton {
       // if (guard) { PUT(dst) = srcImm2 }
       void vexSemantics::exit_s(triton::arch::Instruction& inst) {
         auto& guard = inst.operands[0];
-        auto& dst = inst.operands[1]; // program counter
-        auto  srcImm1 = triton::arch::OperandWrapper(Immediate(inst.getNextAddress(), dst.getSize()));
-        auto& srcImm2 = inst.operands[2]; // takes jump
+        auto& dst = inst.operands[1];
+        auto& src = inst.operands[2]; // takes jump
 
         /* Create symbolic operands */
         auto op1 = this->symbolicEngine->buildSymbolicOperand(inst, guard);
-        auto op2 = this->symbolicEngine->buildSymbolicOperand(inst, srcImm1);
-        auto op3 = this->symbolicEngine->buildSymbolicOperand(inst, srcImm2);
+        auto op2 = this->symbolicEngine->buildSymbolicOperand(inst, dst); // do nothing
+        auto op3 = this->symbolicEngine->buildSymbolicOperand(inst, src);
 
         /* Create the semantics */
+        // dst = src if guard else dst
         auto node = triton::ast::ite(triton::ast::bvugt(op1, triton::ast::bv(0, guard.getBitSize())), op3, op2);
-        // auto node = triton::ast::ite(triton::ast::equal(
-        //   triton::ast::extract(guard.getAbstractLow(), guard.getAbstractLow(), op1),
-        //   triton::ast::bv(0, 1)
-        //   ), op2, op3); // dst = op2 if (guard[0:0] == 0) else op3
 
         /* Create symbolic expression */
         auto expr = this->symbolicEngine->createSymbolicExpression(inst, node, dst, "Program Counter");
@@ -497,23 +493,6 @@ namespace triton {
         auto& dst = inst.operands[0];
         auto& src = inst.operands[1];
 
-        assert(dst.getBitSize() == src.getBitSize());
-
-#if 0
-        if (src.getType() == triton::arch::OP_REG) {
-          std::cout << "mov_s: src: #" << std::hex << src.getRegister().getId() << "<" << src.getRegister().getParent().getId() << " " << src.getRegister() << std::endl;
-        }
-        else {
-          std::cout << "mov_s: src: " << src << std::endl;
-        }
-        if (dst.getType() == triton::arch::OP_REG) {
-          std::cout << "mov_s: dst: #" << std::hex << dst.getRegister().getId() << "<" << dst.getRegister().getParent().getId() << " " << dst.getRegister() << std::endl;
-        }
-        else {
-          std::cout << "mov_s: dst: " << dst << std::endl;
-        }
-#endif
-
         /* Create the semantics */
         // triton::logger::info("-- Create the semantics");
         auto node = this->symbolicEngine->buildSymbolicOperand(inst, src);
@@ -521,7 +500,6 @@ namespace triton {
         /* Create symbolic expression */
         // triton::logger::info("-- Create symbolic expression");
         auto expr = this->symbolicEngine->createSymbolicExpression(inst, node, dst, "MOV operation");
-        // std::cout << "mov_s: expr: " << expr << std::endl;
 
         /* Spread taint */
         // triton::logger::info("-- Spread taint");

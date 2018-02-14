@@ -275,6 +275,7 @@ void UC_GetContextRegval(CONTEXT *ctxt, REG reg, UINT8 *val)
     uc_context_save(uc, tmp_ctxt);
     uc_context_restore(uc, ctxt);
     uc_reg_read(uc, reg, val);
+    log::info("UC_GetContextRegval() = 0x%x", *val);
     uc_context_restore(uc, tmp_ctxt);
 }
 

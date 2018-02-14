@@ -318,13 +318,18 @@ namespace triton {
                 triton::arch::Register index(ID_REG_INVALID); // must be invalid, or a bug occurs in SymbolicEngine::initLeaAst
                 triton::arch::Register seg(ID_REG_INVALID); // must be invalid, or ...
 
+                triton::arch::Immediate disp(0, QWORD_SIZE_BIT);
+                triton::arch::Immediate scale(0, QWORD_SIZE_BIT);
+
                 /* Specify that LEA contains a PC relative */
                 if (base.getId() == TRITON_VEX_REG_PC.getId())
                   mem.setPcRelative(inst.getNextAddress());
 
                 mem.setBaseRegister(base);
-                mem.setIndexRegister(index);
-                mem.setSegmentRegister(seg);
+                mem.setIndexRegister(index); // dummy
+                mem.setSegmentRegister(seg); // dummy
+                mem.setDisplacement(disp); // dummy
+                mem.setScale(scale); // dummy
 
                 // TODO: endness
 
@@ -427,8 +432,6 @@ namespace triton {
             address, triton::intlibs::vexlifter::vex_repr_itype(inst.getType()).c_str(), inst.getType(), vex_insn.full.c_str());
 #endif
 
-          // TODO: Set Context (writtenRegisters etc.)
-
           /* Check lift error */
           if (vex_insn.tag == triton::intlibs::vexlifter::Ist_Invalid) {
             puts("=== [errored] ===");
@@ -504,6 +507,11 @@ namespace triton {
               );
               break;
             } // case Ist_Exit
+            case triton::intlibs::vexlifter::Ist_Jump: {
+              // push dst register (program counter)
+              inst.operands.push_back(triton::arch::OperandWrapper(inst.getRegisterState(ID_REG_RIP)));
+              break;
+            } // case Ist_Jump
             default:
               break;
           }
@@ -535,7 +543,8 @@ namespace triton {
           // }
 
           /* Set branch */
-          if (vex_insn.tag == triton::intlibs::vexlifter::Ist_Jump)
+          if (vex_insn.tag == triton::intlibs::vexlifter::Ist_Jump ||
+              vex_insn.tag == triton::intlibs::vexlifter::Ist_Exit)
             inst.setBranch(true);
           if (vex_insn.tag == triton::intlibs::vexlifter::Ist_Jump)
             if(vex_insn.jumpkind == triton::intlibs::vexlifter::Ijk_Boring ||
@@ -583,6 +592,11 @@ namespace triton {
         triton::uint512 ret = 0;
         triton::uint64 addr = mem.getAddress();
         triton::uint32 size = mem.getSize();
+
+        // asm volatile("int3");
+        // assert(addr > 0);
+
+        triton::logger::info("vexCpu::getConcreteMemoryValue(mem = {addr = 0x%x, size = %d})", addr, size);
 
         if (size == 0 || size > DQQWORD_SIZE)
           throw triton::exceptions::Cpu("vexCpu::getConcreteMemoryValue(): Invalid size memory.");

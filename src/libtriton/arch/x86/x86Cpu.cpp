@@ -15,6 +15,8 @@
 #include <triton/immediate.hpp>
 #include <triton/x86Cpu.hpp>
 
+#include <triton/logger.hpp>
+
 
 namespace triton {
   namespace arch {
@@ -644,6 +646,8 @@ namespace triton {
         triton::uint512 ret = 0;
         triton::uint64 addr = mem.getAddress();
         triton::uint32 size = mem.getSize();
+
+        triton::logger::info("x86Cpu::getConcreteMemoryValue(mem = {addr = 0x%x, size = %d})", addr, size);
 
         if (size == 0 || size > DQQWORD_SIZE)
           throw triton::exceptions::Cpu("x86Cpu::getConcreteMemoryValue(): Invalid size memory.");
