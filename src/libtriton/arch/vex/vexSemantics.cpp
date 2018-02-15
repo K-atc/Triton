@@ -179,7 +179,7 @@ namespace triton {
         expr->isTainted |= this->taintEngine->taintUnion(dst, src2);
 
         /* Upate the symbolic control flow */
-        this->controlFlow_s(inst);
+        // this->controlFlow_s(inst);
       }
 
       // dst = shl(src1, src2)
@@ -207,7 +207,7 @@ namespace triton {
         expr->isTainted = this->taintEngine->taintUnion(dst, src);
 
         /* Upate the symbolic control flow */
-        this->controlFlow_s(inst);
+        // this->controlFlow_s(inst);
       }
 
       // dst = src1 - src2
@@ -233,7 +233,7 @@ namespace triton {
         expr->isTainted |= this->taintEngine->taintUnion(dst, src2);
 
         /* Upate the symbolic control flow */
-        this->controlFlow_s(inst);
+        // this->controlFlow_s(inst);
       }
 
       // dst = src1 ^ src2
@@ -260,7 +260,7 @@ namespace triton {
         expr->isTainted |= this->taintEngine->taintUnion(dst, src2);
 
         /* Upate the symbolic control flow */
-        this->controlFlow_s(inst);
+        // this->controlFlow_s(inst);
       }
 
       // if (guard) { PUT(dst) = srcImm2 }
@@ -268,18 +268,32 @@ namespace triton {
         auto& guard = inst.operands[0];
         auto& dst = inst.operands[1];
         auto& src = inst.operands[2]; // takes jump
+        // auto nextPc = triton::arch::OperandWrapper(Immediate(inst.getNextAddress(), dst.getSize()));
 
         /* Create symbolic operands */
         auto op1 = this->symbolicEngine->buildSymbolicOperand(inst, guard);
-        auto op2 = this->symbolicEngine->buildSymbolicOperand(inst, dst); // do nothing
-        auto op3 = this->symbolicEngine->buildSymbolicOperand(inst, src);
+        auto op2 = this->symbolicEngine->buildSymbolicOperand(inst, src);
+        auto op3 = this->symbolicEngine->buildSymbolicOperand(inst, dst); // do nothing
+        // auto op3 = this->symbolicEngine->buildSymbolicOperand(inst, nextPc);
 
         /* Create the semantics */
-        // dst = src if guard else dst
-        auto node = triton::ast::ite(triton::ast::bvugt(op1, triton::ast::bv(0, guard.getBitSize())), op3, op2);
+        /* dst = src if (guard is truthy) else nextPc */
+        // auto node = triton::ast::ite(triton::ast::equal(op1, triton::ast::bvtrue()), op2, op3);
+        auto node = triton::ast::ite(triton::ast::bvugt(op1, triton::ast::bv(0, guard.getBitSize())), op2, op3);
+        // auto node = triton::ast::ite(triton::ast::equal(op1, triton::ast::bv(0, guard.getBitSize())), op3, op2);
 
         /* Create symbolic expression */
         auto expr = this->symbolicEngine->createSymbolicExpression(inst, node, dst, "Program Counter");
+
+        /* Set condition flag */
+        if (!op1->evaluate().is_zero()){
+          std::cout << "vexSemantics::exit_s: !op1->evaluate().is_zero() == true: jump will take" << std::endl;
+          inst.setConditionTaken(true);
+        }
+        else {
+          std::cout << "vexSemantics::exit_s: !op1->evaluate().is_zero() == false: jump will NOT take" << std::endl;
+          std::cout << op1 << std::endl;
+        }
 
         /* Spread taint */
         // No Taints
@@ -333,7 +347,7 @@ namespace triton {
           case AMD64G_CC_OP_SUBW:    /* 6 DEP1 = argL, DEP2 = argR, NDEP = unused */
           case AMD64G_CC_OP_SUBL:    /* 7 */
           case AMD64G_CC_OP_SUBQ:    /* 8 */
-            res = triton::ast::bvsub(op1, op2);
+            res = triton::ast::bvsub(op1, op2); // op1 - op2
             cf = triton::ast::bvult(op1, op2); // op1 < op2
             af = triton::ast::bvxor(res, triton::ast::bvxor(op1, op2));
             zf = triton::ast::ite(
@@ -432,9 +446,10 @@ namespace triton {
           case AMD64CondNB:   /* not below          */
             throw triton::exceptions::Semantics("vexSemantics::helper_amd64g_calculate_condition_s(): this cond Not implemented.");
           case AMD64CondZ:    /* zero               */
-            node = triton::ast::equal(zf, triton::ast::bvtrue()); break;
+            triton::logger::info("amd64g_calculate_condition: cond: AMD64CondZ");
+            node = zf; break;
           case AMD64CondNZ:   /* not zero           */
-            node = triton::ast::equal(zf, triton::ast::bvfalse()); break;
+            node = triton::ast::lnot(zf); break;
           case AMD64CondBE:   /* below or equal     */
             node = triton::ast::bvor(cf, zf); break;                      // 1 & (inv ^ (cf | zf));
           case AMD64CondNBE:  /* not below or equal */
@@ -461,11 +476,12 @@ namespace triton {
         expr->isTainted |= this->taintEngine->taintUnion(dst, cc_ndep);
 
         /* Upate the symbolic control flow */
-        this->controlFlow_s(inst);
+        // this->controlFlow_s(inst);
 
         // throw triton::exceptions::Semantics("vexSemantics::helper_amd64g_calculate_condition_s(): Not implemented.");
       }
 
+      // not used
       void vexSemantics::jump_boring_s(triton::arch::Instruction& inst) {
         auto pc  = triton::arch::OperandWrapper(TRITON_VEX_REG_PC);
         auto srcImm = triton::arch::OperandWrapper(Immediate(inst.getNextAddress(), pc.getSize()));
@@ -507,7 +523,14 @@ namespace triton {
 
         /* Upate the symbolic control flow */
         // triton::logger::info("-- Upate the symbolic control flow");
-        this->controlFlow_s(inst);
+        if (dst.getType() == triton::arch::OP_REG && dst.getRegister().getId() == triton::arch::vex::ID_REG_RIP) {
+          // Do not call update controlFlow_s. Because program counter has changed in this operation.
+          // Add Path Constraint for this branch
+          triton::logger::info("vexSemantics::mov_s: adding path constraint");
+          this->symbolicEngine->addPathConstraint(inst, expr);
+        }
+        // else
+        //   this->controlFlow_s(inst);
 
         // triton::logger::info("-- End of semantics");
       }
@@ -528,6 +551,7 @@ namespace triton {
           node = triton::ast::sx(castToSize - castFromSize, triton::ast::extract(castFromSize-1, 0, op1)); // padding with sign bit
         }
         else { // shorten
+          std::cout << "MSB: " << triton::ast::extract(castFromSize-1, castFromSize-1, op1) << std::endl;
           node = triton::ast::concat(
             triton::ast::extract(castFromSize-1, castFromSize-1, op1), // MSB (sign bit)
             triton::ast::extract(castToSize-2, 0, op1)
@@ -541,7 +565,7 @@ namespace triton {
         expr->isTainted = this->taintEngine->taintAssignment(dst, src1);
 
         /* Upate the symbolic control flow */
-        this->controlFlow_s(inst);
+        // this->controlFlow_s(inst);
       }
 
       void vexSemantics::unop_castu_s(triton::arch::Instruction& inst) {
@@ -570,7 +594,7 @@ namespace triton {
         expr->isTainted = this->taintEngine->taintAssignment(dst, src1);
 
         /* Upate the symbolic control flow */
-        this->controlFlow_s(inst);
+        // this->controlFlow_s(inst);
       }
 
     }; /* vex namespace */

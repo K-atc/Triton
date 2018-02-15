@@ -12,6 +12,7 @@
 #include <triton/tritonToZ3Ast.hpp>
 #include <triton/z3Result.hpp>
 
+#include <triton/logger.hpp>
 
 
 /*! \page solver_interface_page SMT Solver Interface
@@ -145,11 +146,24 @@ namespace triton {
         /* Create a solver and add the expression */
         solver.add(eq);
 
+#if 0
+        if (solver.check() != z3::sat) {
+          triton::logger::warn("NOT SAT");
+        }
+        else {
+          triton::logger::info("SAT!!");
+        }
+#endif
+
         /* Check if it is sat */
         while (solver.check() == z3::sat && limit >= 1) {
 
           /* Get model */
           z3::model m = solver.get_model();
+
+          if (m.size() == 0) {
+            triton::logger::warn("solver.get_model(): got no models");
+          }
 
           /* Traversing the model */
           std::map<triton::uint32, SolverModel> smodel;
