@@ -108,7 +108,7 @@ namespace triton {
         /* Multiple branches */
         // std::cout << "getKind = " << pc->getKind() << std::endl;
         if (pc->getKind() == triton::ast::ITE_NODE) {
-          std::cout << "Multiple branchs" << std::endl;
+          // std::cout << "Multiple branchs" << std::endl;
           triton::uint64 bb1 = pc->getChilds()[1]->evaluate().convert_to<triton::uint64>();
           triton::uint64 bb2 = pc->getChilds()[2]->evaluate().convert_to<triton::uint64>();
 
@@ -126,7 +126,7 @@ namespace triton {
 
         /* Direct branch */
         else {
-          std::cout << "direct branch" << std::endl;
+          // std::cout << "direct branch" << std::endl;
           pco.addBranchConstraint(true, srcAddr, dstAddr, triton::ast::equal(pc, triton::ast::bv(dstAddr, size)));
           this->pathConstraints.push_back(pco);
         }

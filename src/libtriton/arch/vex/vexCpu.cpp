@@ -358,7 +358,9 @@ namespace triton {
             vex_lift(&res, (unsigned char*) baseInst.getOpcodes(), baseInst.getAddress(), baseInst.getSize());
             if (res.find(address) == res.end())
               throw triton::exceptions::Disassembly("vexCpu::disassembly(): failed to lift");
-            print_vex_insns_group(res);
+            #ifndef NDEBUG
+              print_vex_insns_group(res);
+            #endif
             vex_insns = res[address];
           }
           else {
@@ -563,7 +565,7 @@ namespace triton {
       void vexCpu::disassembleBytes(triton::uint8 *insnBytes, triton::uint32 insnBytesSize, triton::uint64 address) {
         /* Check if the insnBytes and insnBytes' size are defined */
         if (insnBytes == nullptr || insnBytes[0] == 0)
-          throw triton::exceptions::Disassembly("vexCpu::disassembly(): Opcodes and insnBytesSize must be definied.");
+          throw triton::exceptions::Disassembly("vexCpu::disassembleBytes(): Opcodes and insnBytesSize must be definied.");
 
         /* Lift native inst to VexIR */
         triton::intlibs::vexlifter::vex_insns_group res;
@@ -593,10 +595,7 @@ namespace triton {
         triton::uint64 addr = mem.getAddress();
         triton::uint32 size = mem.getSize();
 
-        // asm volatile("int3");
-        // assert(addr > 0);
-
-        triton::logger::info("vexCpu::getConcreteMemoryValue(mem = {addr = 0x%x, size = %d})", addr, size);
+        // triton::logger::info("vexCpu::getConcreteMemoryValue(mem = {addr = 0x%x, size = %d})", addr, size);
 
         if (size == 0 || size > DQQWORD_SIZE)
           throw triton::exceptions::Cpu("vexCpu::getConcreteMemoryValue(): Invalid size memory.");
