@@ -60,6 +60,7 @@ def mycb(inst):
 
                     ### Inspect jump not taken branch
                     if br['isTaken'] is False and br['constraint'].isSymbolized():
+                        print("[*] assert: %s" % ast.assert_(br['constraint']))
                         models = getModel(ast.assert_(br['constraint']))
                         if len(models.items()) > 0:
                             for k, v in models.items():
