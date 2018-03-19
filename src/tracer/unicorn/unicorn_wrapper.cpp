@@ -6,6 +6,7 @@
 #include <keystone/keystone.h>
 
 // for file oparation
+#include <fcntl.h>
 #include <sys/stat.h>
 #include <fstream>
 #include <iostream>
@@ -18,11 +19,13 @@
 using namespace tracer::unicorn;
 
 #include "unicorn_wrapper.h"
+#include "unicorn_elf_loader.hpp"
 
 /* for unicorn engine */
 uc_engine* uc;
 uc_hook uh_trap;
 uc_hook uh_syscall, uh_interrupt, uh_syscall_entry, uh_syscall_exit;
+uc_hook trace2, trace3, uc_hook_syscall; // at UC_LoadElf
 
 /* for loader */
 std::list<memory_map> memory_map_list;
@@ -92,7 +95,7 @@ static void hook_intr(uc_engine *uc, uint32_t intno, void *user_data)
     }
 }
 
-void register_memory_map(std::string name, unsigned int start, unsigned end)
+void register_memory_map(std::string name, unsigned long int start, unsigned end)
 {
     struct memory_map mm;
     mm.name = name;
@@ -123,7 +126,16 @@ std::string UC_getImageName(ADDR address)
 
 uc_file_type UC_DetectFileType(const char* file_name)
 {
-    log::warn("UC_DetectFileType is not implemented. returning UC_FILE_BIN");
+    FILE *fp;
+    fp = fopen(file_name, "r");
+    if (fp == 0) {
+        log::error("file not exists");
+    }
+    uint8_t magic[4];
+    fread(magic, 4, 1, fp);
+    if (magic[0] == 0x7f && magic[1] == 'E' && magic[2] == 'L' && magic[3] == 'F') {
+        return UC_FILE_ELF64;
+    }
     return UC_FILE_BIN;
 }
 
@@ -146,30 +158,40 @@ void UC_InitSymbols(void)
 bool UC_Init(int argc, char *argv[])
 {
     if (argc <= 2) {
-        return false; 
+        return false;
     }
     if (argc > 2) {
         ucPythonScriptFileName = argv[1];
         ucBinFileName = argv[2];
     }
 
+    // Open Unicorn Engine
     uc_err err;
     err = uc_open(UC_ARCH_X86, UC_MODE_64, &uc);
-    
-    uc_file_type file_type = UC_DetectFileType(ucBinFileName);
-    if (file_type == UC_FILE_BIN) {
-        log::debug("bin file mode:");
-        UC_LoadBinaryFromBinFile(ucBinFileName);
+    if (err) {
+        log::error("Failed on uc_open with error: %u", err);
     }
 
-    if (err) {
-        log::error("Failed on uc_open with error returned: %u", err);
-        // return false;
+    // Load file
+    bool load_ok = false;
+    uc_file_type file_type = UC_DetectFileType(ucBinFileName);
+    if (file_type == UC_FILE_BIN) {
+        log::debug("bin file mode");
+        load_ok = UC_LoadBinaryFromBinFile(ucBinFileName); // not supports argv
     }
+    else if (file_type == UC_FILE_ELF32 || file_type == UC_FILE_ELF64) {
+        log::debug("elf file mode");
+        load_ok = UC_LoadElf(argc - 2, &argv[2]); // drop argv[0], argv[1] in main()
+    }
+    if (!load_ok) {
+        log::error("UC_Init: Load failed");
+    }
+
+    // Open Capstone Engine
     if (cs_open(CS_ARCH_X86, CS_MODE_64, &csh_handle) != CS_ERR_OK) {
         log::error("Failed on cs_open");
-        // return false;
     }
+
     return true;
 }
 
@@ -225,42 +247,53 @@ void UC_Detach()
 
 void UC_StartProgram()
 {
+    NON_NULL_ASSERT(tracer::unicorn::context::lastContext);
+    UC_ERR_CHECK(uc_context_restore(uc, tracer::unicorn::context::lastContext)); // sync state from Triton to unicorn
     int count = 0;
-    log::debug("uc_emu_start(uc=%p, begin=0x%x, until=0x%x, timeout=%u, count=%u)", 
+    log::debug("UC_StartProgram(): uc_emu_start(uc=%p, begin=0x%x, until=0x%x, timeout=%u, count=%u)", 
         uc, tracer_env.emuStartAddr, tracer_env.emuEndAddr, 0, count);
-    uc_context_restore(uc, tracer::unicorn::context::lastContext); // sync state from Triton to unicorn
-    uc_emu_start(uc, tracer_env.emuStartAddr, tracer_env.emuEndAddr, 0, count); // timeout = 0, count = 0
+#if 0
+    uint64_t rax, rsi, rsp;
+    uc_reg_read(uc, UC_X86_REG_RAX, &rax);
+    uc_reg_read(uc, UC_X86_REG_RSI, &rsi);
+    uc_reg_read(uc, UC_X86_REG_RSP, &rsp);
+    printf(">>> RAX = 0x%lx\n", rax);
+    printf(">>> RSI = 0x%lx\n", rsi);
+    printf(">>> RSP = 0x%lx\n", rsp);
+    if (rsp == 0) log::error("this context is blank");
+#endif
+    UC_ERR_CHECK(uc_emu_start(uc, tracer_env.emuStartAddr, tracer_env.emuEndAddr, 0, count)); // timeout = 0, count = 0
 }
 
 void UC_StopProgram()
 {
     log::debug("UC_StopProgram() called");
-    uc_emu_stop(uc);
+    UC_ERR_CHECK(uc_emu_stop(uc));
+}
+
+CONTEXT* UC_GetCurrentContext(uc_engine *uc)
+{
+    uc_context *ctxt = nullptr;
+    UC_ERR_CHECK(uc_context_alloc(uc, &ctxt));
+    UC_ERR_CHECK(uc_context_save(uc, ctxt));
+    return ctxt;
 }
 
 CONTEXT* UC_GetCurrentContext()
 {
-    uc_err err;
-    struct uc_context *ctxt;
-    err = uc_context_alloc(uc, &ctxt);
-    if (err) {
-        log::error("Failed on uc_context_alloc() with error returned: %u", err);
-    }
-    NON_NULL_ASSERT(ctxt);
-    err = uc_context_save(uc, ctxt);
-    if (err) {
-        log::error("Failed on uc_context_save() with error returned: %u", err);
-    }
+    NON_NULL_ASSERT(uc);
+    uc_context *ctxt = nullptr;
+    UC_ERR_CHECK(uc_context_alloc(uc, &ctxt));
+    UC_ERR_CHECK(uc_context_save(uc, ctxt));
     return ctxt;
 }
 
 uc_err UC_GetCurrentRegVal(REG reg, void *val)
 {
     NON_NULL_ASSERT(val);
-    return uc_reg_read(uc, reg, val);
+    return UC_ERR_CHECK(uc_reg_read(uc, reg, val));
 }
 
-// XXX* UINT8? Really?!
 void UC_GetContextRegval(CONTEXT *ctxt, REG reg, UINT8 *val)
 {
     NON_NULL_ASSERT(ctxt);
@@ -275,7 +308,7 @@ void UC_GetContextRegval(CONTEXT *ctxt, REG reg, UINT8 *val)
     uc_context_save(uc, tmp_ctxt);
     uc_context_restore(uc, ctxt);
     uc_reg_read(uc, reg, val);
-    log::info("UC_GetContextRegval() = 0x%x", *val);
+    log::debug("UC_GetContextRegval() = 0x%x :uint32", *((unsigned int *)val));
     uc_context_restore(uc, tmp_ctxt);
 }
 
@@ -296,6 +329,11 @@ void UC_SetContextRegval(CONTEXT *ctxt, REG reg, UINT8 *val)
     uc_reg_write(uc, reg, val);
     uc_context_save(uc, ctxt);
     uc_context_restore(uc, tmp_ctxt);
+}
+
+uc_err UC_ReadCurrentMem(ADDR address, void* data, size_t size)
+{
+    return uc_mem_read(uc, address, data, size);
 }
 
 uc_err UC_WriteCurrentMem(ADDR address, void* data, size_t size)
@@ -403,7 +441,7 @@ static size_t readFileAll(const char* file_name, unsigned char* read_to, size_t 
     return strlen((char *) read_to);
 }
 
-uc_err UC_LoadBinaryFromBinFile(const char* file_name)
+bool UC_LoadBinaryFromBinFile(const char* file_name)
 {
     size_t file_size = UC_GetFileSize(ucBinFileName);
     unsigned char* bin;
@@ -414,6 +452,91 @@ uc_err UC_LoadBinaryFromBinFile(const char* file_name)
     UC_LoadBinary(bin, BIN_FILE_BASE_ADDR, file_size);
     UC_SetEmuStartAddr(BIN_FILE_BASE_ADDR);
     UC_SetEmuEndAddr(BIN_FILE_BASE_ADDR + file_size);
+    return true;
+}
+
+uc_context* test(uc_engine* uc)
+{
+  uc_context *ctxt = nullptr;
+  UC_ERR_CHECK(uc_context_alloc(uc, &ctxt));
+  UC_ERR_CHECK(uc_context_save(uc, ctxt));
+  return ctxt;
+}
+
+bool UC_LoadElf(int argc, char* argv[])
+{
+    using namespace triton::tracer::unicorn::loader::elf;
+
+    err_t err;
+
+    if (argc < 1) {
+        log::error("Failed on UC_LoadElf() argc must not less than 1");
+        return false;
+    }
+
+    char *ELF_FILE = argv[0];
+    log::debug("ELF_FILE = %s", ELF_FILE);
+    header header;
+    sections sections;
+    segments segments;
+    err = parse_elf(ELF_FILE, &header, &sections, &segments);
+    if (err) {
+        if (err == ERR_EXIST) perror("file not exists.");
+        if (err == ERR_FORMAT) fprintf(stdout, "this is not elf.\n");
+        log::error("parse_elf failed");
+    }
+
+    print_header(&header);
+    print_sections(&sections);
+    print_segments(&segments);
+
+    UC_ERR_CHECK(uc_open(UC_ARCH_X86, UC_MODE_64, &uc)); // FIXME: Multi-arch support
+
+    log::debug("call elf_loader(uc=%p, ...)", uc);
+    elf_loader(ELF_FILE, uc, &header, &segments);
+
+    // prepare stack
+    uc_mem_map(uc, 0x7fffffff0000, 0x10000, UC_PROT_ALL);
+    register_memory_map("stack", 0x7fffffff0000, 0x10000);
+    uint64_t rsp = 0x7ffffffff000; // FIXME: really
+    uc_reg_write(uc, UC_X86_REG_RSP, &rsp);
+    uint64_t emu_argc = argc;
+    std::vector<uint64_t> argv_ptr;
+    log::info("=== [prepare stack] ===");
+    log::info("emu_argc = %d",  emu_argc);
+    // -- argv[1]
+    if (argc >= 2)
+        argv_ptr.push_back(push_argv(uc, (uint8_t *) argv[1], strlen(argv[1])));
+    // -- argv[0]
+    if (argc >= 1)
+        argv_ptr.push_back(push_argv(uc, (uint8_t *) argv[0], strlen(argv[0])));
+    // -- address of argvs
+    if (emu_argc == 1) {
+        push_stack(uc, 0);
+    }
+    for (int i = 0; i < emu_argc; i++) {
+        push_stack(uc, argv_ptr[i]);
+    }
+    // -- argc
+    push_stack(uc, emu_argc);
+    // synchronize rbp with rsp
+    uc_reg_read(uc, UC_X86_REG_RSP, &rsp);
+    uc_reg_write(uc, UC_X86_REG_RBP, &rsp);
+
+    // #ifndef NDEBUG
+    //     // print executed codes (debug purpose)
+    //     uc_hook_add(uc, &trace2, UC_HOOK_CODE, (void *)hook_code64, NULL, 1, 0);
+    // #endif
+    // intercept invalid memory events
+    uc_hook_add(uc, &trace3, UC_HOOK_MEM_READ_UNMAPPED | UC_HOOK_MEM_WRITE_UNMAPPED, (void *)hook_mem_invalid, NULL, 1, 0);
+    // prepare hooks for syscall
+    uc_hook_add(uc, &uc_hook_syscall, UC_HOOK_INSN, (void *)hook_syscall, NULL, 1, 0, UC_X86_INS_SYSCALL);
+
+    // Set entry-point
+    UC_SetEmuStartAddr(header.entry_point);
+    UC_SetEmuEndAddr(0); // Endless emulation
+
+    return true;
 }
 
 void UC_SetEmuStartAddr(int address)

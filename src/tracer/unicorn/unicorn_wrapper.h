@@ -86,10 +86,12 @@ std::string UC_getImageName(ADDR address);
 extern const char* ucPythonScriptFileName;
 
 struct tracer_env {
-    int entryPoint = CODE_ADDRESS;
-    int emuStartAddr = CODE_ADDRESS;    
-    int emuEndAddr = CODE_ADDRESS;    
+    ADDR entryPoint = CODE_ADDRESS;
+    ADDR emuStartAddr = CODE_ADDRESS;
+    ADDR emuEndAddr = -1;
 };
+
+void register_memory_map(std::string name, unsigned long int start, unsigned end);
 
 // TODO: Mutex
 
@@ -125,6 +127,7 @@ CONTEXT* UC_GetCurrentContext();
 void UC_GetContextRegval(CONTEXT *ctxt, REG reg, UINT8 *val);
 void UC_SetContextRegval(CONTEXT *ctxt, REG reg, UINT8 *val);
 
+uc_err UC_ReadCurrentMem(ADDR address, void* data, size_t size);
 uc_err UC_WriteCurrentMem(ADDR address, void* data, size_t size);
 
 // VOID LEVEL_PINCLIENT::PIN_ExecuteAt(const CONTEXT *ctxt)
@@ -138,7 +141,8 @@ void UC_ExecuteAt(CONTEXT *ctxt);
 uc_err UC_SaveContext(CONTEXT *ctxtFrom, CONTEXT *ctxtTo);
 
 uc_err UC_LoadBinary(unsigned char *bin, int begin, int size);
-uc_err UC_LoadBinaryFromBinFile(const char* file_name);
+bool UC_LoadBinaryFromBinFile(const char* file_name);
+bool UC_LoadElf(int argc, char* argv[]);
 void UC_SetEmuStartAddr(int start);
 void UC_SetEmuEndAddr(int address);
 
@@ -165,6 +169,13 @@ static void _non_null_assert(void* v, const char* name)
   }
 }
 #define NON_NULL_ASSERT(x) _non_null_assert((void *)x, #x)
+
+static uc_err _uc_err_check(uc_err err, const char* expr)
+{
+  if (err) log::error("[Unicorn Engine API] Failed on %s with error: %s\n", expr, uc_strerror(err));
+  return err;
+}
+#define UC_ERR_CHECK(x) _uc_err_check(x, #x)
 
 // orig: sample/shellcode.c
 // callback for tracing instruction

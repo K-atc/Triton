@@ -758,6 +758,7 @@ namespace tracer {
       // log::info(">>> syscall(%d)", syscall_no);
 
       /* Update CTX */
+      log::debug("callbackSyscallEntry:");
       tracer::unicorn::context::lastContext = UC_GetCurrentContext();
 
       /* Execute the Python callback */
@@ -1026,8 +1027,21 @@ namespace tracer {
     //   }
     // }
 
-    void callbackUnmapped(uc_engine *uc, uc_hook hh, uint64_t address, uint32_t size, void *user_data) {
-        log::error("FIXME: unmapped memory access (address = 0x%x, size = 0x%x)", address, size);
+    void callbackUnmapped(uc_engine *uc, uc_mem_type type,
+        uint64_t address, int size, int64_t value, void *user_data) {
+        switch(type) {
+            default:
+                // return false to indicate we want to stop emulation
+                return;
+            case UC_MEM_READ_UNMAPPED:
+                     log::error(">>> Missing memory is being READ at 0x%lx, data size = %u, data value = 0x%lx\n",
+                             address, size, value);
+                     return;
+            case UC_MEM_WRITE_UNMAPPED:
+                     log::error(">>> Missing memory is being WRITE at 0x%lx, data size = %u, data value = 0x%lx\n",
+                             address, size, value);
+                     return;
+        }
     }
 
     /* Usage function */
@@ -1050,8 +1064,7 @@ namespace tracer {
       uc_err err;
       struct user_data_for_triton user_data_for_triton;
 
-      /* Init the Triton context */
-      // TODO: is this correct?
+      /* Init the Triton context */ 
       tracer::unicorn::context::lastContext = UC_GetCurrentContext();
 
       /* Init the Triton module */
@@ -1060,7 +1073,7 @@ namespace tracer {
       /* Image callback */
       log::warn("calling UC_AddLoaderHook, but callback won't be called. Because Loader loads binary at UC_Init()");
       uc_hook uh_loader;
-      UC_AddLoaderHook(&uh_loader, UC_HOOK_LOADER_COMPLETE, (void *)IMG_Instrumentation, (void *)&user_data_for_triton); 
+      UC_AddLoaderHook(&uh_loader, UC_HOOK_LOADER_COMPLETE, (void *)IMG_Instrumentation, (void *)&user_data_for_triton);
 
       log::warn("forcing calling IMG_Instrumentation() to enable startAnalysisFromEntry");
       IMG_Instrumentation(nullptr, &*(memory_map_list.begin()));
@@ -1082,8 +1095,10 @@ namespace tracer {
       err = UC_AddMemAccessUnmappedHook(&uh_unmapped_error, (void *)callbackUnmapped, nullptr);
 
       /* End instrumentation callback */
+#if 0
       // Not Implemented
       // UC_AddFiniFunction(callbackFini, nullptr);
+#endif
 
       /* Syscall entry callback */
       err = UC_AddSyscallEntryFunction((void *)callbackSyscallEntry, (void *)&user_data_for_triton);
@@ -1111,6 +1126,7 @@ namespace tracer {
       // UC_InterceptSignal(SIGALRM, callbackSignals, nullptr);
       // UC_InterceptSignal(SIGTERM, callbackSignals, nullptr);
 
+#if 0
       // Prototype Only (VERY DIRTY)
       if (argv[3]) {
         log::info("argv[3] '%s' was written to workspace memory", argv[3]);
@@ -1119,10 +1135,11 @@ namespace tracer {
           log::error("mem write failed (err=%d)", err);
         }
       }
+#endif
 
       /* Exec the Unicorn's python bindings */
       tracer::unicorn::initBindings();
-      tracer::unicorn::execScript(ucPythonScriptFileName, argc, argv); 
+      tracer::unicorn::execScript(ucPythonScriptFileName, argc, argv);
 
       return 0;
     }

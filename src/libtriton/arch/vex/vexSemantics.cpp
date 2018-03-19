@@ -76,20 +76,23 @@ namespace triton {
         using namespace triton::intlibs::vexlifter;
         triton::logger::info("vexSemantics::buildSemantics: addr = 0x%x, type = %s", inst.getAddress(), vex_repr_itype(inst.getType()).c_str());
 
-        /* for debugging */
-        for (unsigned int op_index = 0; op_index != inst.operands.size(); op_index++) {
-          std::cout << "\tOperand " << op_index << ": " << inst.operands[op_index] << std::endl;
-          if (inst.operands[op_index].getType() == OP_MEM) {
-            std::cout << "\t   base  : " << inst.operands[op_index].getMemory().getBaseRegister() << std::endl;
-          }
-        }
+#ifndef NDEBUG
+        // /* for debugging */
+        // for (unsigned int op_index = 0; op_index != inst.operands.size(); op_index++) {
+        //   std::cout << "\tOperand " << op_index << ": " << inst.operands[op_index] << std::endl;
+        //   if (inst.operands[op_index].getType() == OP_MEM) {
+        //     std::cout << "\t   base  : " << inst.operands[op_index].getMemory().getBaseRegister() << std::endl;
+        //   }
+        // }
+#endif
 
         switch ((triton::uint32) inst.getType()) {
           case ID_AMD64G_CALCUATE_CONDITION:
             this->helper_amd64g_calculate_condition_s(inst); break;
           case vex_itype(Ist_IMark):
             triton::logger::info("skipping Ist_IMark"); break;
-            break;
+          case vex_itype(Ist_AbiHint):
+            triton::logger::info("skipping Ist_AbiHint"); break;
           case vex_itype(Ist_Exit, Ijk_Boring):
             this->exit_s(inst); break;
           case vex_itype(Ist_Jump):             // TODO; Ijk_Syscall, etc.
@@ -101,6 +104,7 @@ namespace triton {
           case vex_itype(Ist_WrTmp, Iex_Get): // mov_s
           case vex_itype(Ist_WrTmp, Iex_RdTmp): // mov_s
           case vex_itype(Ist_WrTmp, Iex_Load): // mov_s
+          case vex_itype(Ist_Store, Iex_Const): // mov_s
             this->mov_s(inst); break;
           case vex_itype(Ist_WrTmp, Iex_Unop, Iop_Cast):
             this->unop_cast_s(inst); break;
@@ -127,11 +131,11 @@ namespace triton {
             return false;
         }
 #ifndef NDEBUG
-        // dor debugging
-        for (unsigned int exp_index = 0; exp_index != inst.symbolicExpressions.size(); exp_index++) {
-          auto expr = inst.symbolicExpressions[exp_index];
-          std::cout << "\tSymExpr " << exp_index << ": " << expr << std::endl;
-        }
+        // // for debugging
+        // for (unsigned int exp_index = 0; exp_index != inst.symbolicExpressions.size(); exp_index++) {
+        //   auto expr = inst.symbolicExpressions[exp_index];
+        //   std::cout << "\tSymExpr " << exp_index << ": " << expr << std::endl;
+        // }
 #endif
         return true;
       }
@@ -551,7 +555,7 @@ namespace triton {
           node = triton::ast::sx(castToSize - castFromSize, triton::ast::extract(castFromSize-1, 0, op1)); // padding with sign bit
         }
         else { // shorten
-          std::cout << "MSB: " << triton::ast::extract(castFromSize-1, castFromSize-1, op1) << std::endl;
+          std::cout << "\tMSB: " << triton::ast::extract(castFromSize-1, castFromSize-1, op1) << std::endl;
           node = triton::ast::concat(
             triton::ast::extract(castFromSize-1, castFromSize-1, op1), // MSB (sign bit)
             triton::ast::extract(castToSize-2, 0, op1)

@@ -359,7 +359,7 @@ namespace triton {
             if (res.find(address) == res.end())
               throw triton::exceptions::Disassembly("vexCpu::disassembly(): failed to lift");
             #ifndef NDEBUG
-              print_vex_insns_group(res);
+              // print_vex_insns_group(res);
             #endif
             vex_insns = res[address];
           }
@@ -672,7 +672,7 @@ namespace triton {
 
 
       void vexCpu::setConcreteMemoryValue(triton::uint64 addr, triton::uint8 value) {
-        triton::logger::info("vexCpu::setConcreteMemoryValue(addr=0x%x, value=0x%x)", addr, value);
+        triton::logger::debug("vexCpu::setConcreteMemoryValue(addr=0x%lx, value=0x%x)", addr, value);
         this->memory[addr] = value;
       }
 
@@ -682,7 +682,7 @@ namespace triton {
         triton::uint32 size = mem.getSize();
         triton::uint512 cv  = mem.getConcreteValue();
 
-        triton::logger::info("vexCpu::setConcreteMemoryValue(mem{addr=0x%x, size=%d, value=0x%x})", addr, size, (unsigned long int) cv);
+        triton::logger::debug("vexCpu::setConcreteMemoryValue(mem{addr=0x%lx, size=%d, value=0x%x})", addr, size, (unsigned long int) cv);
 
         if (size == 0 || size > DQQWORD_SIZE)
           throw triton::exceptions::Cpu("vexCpu::setConcreteMemoryValue(): Invalid size memory.");

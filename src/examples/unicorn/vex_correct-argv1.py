@@ -18,12 +18,6 @@ def yellow_str(msg):
 def user_logger(msg):
     print('[user:info] {}'.format(msg))
 
-def abs_addr(rel_addr):
-    return rel_addr - 0x400080 + 0x100000
-
-def rel_addr(abs_addr):
-    return abs_addr + 0x400080 - 0x100000
-
 def handle_syscall(thread_id, syscall_no):
     global syscall_table
     rdi = getConcreteRegisterValue(REG.RDI)
@@ -37,10 +31,22 @@ def handle_syscall(thread_id, syscall_no):
 def mycb(inst):
     global argv1, known_flag
 
-    succ_addr = abs_addr(0x4000d6)
-    fail_addr = abs_addr(0x4000e7)
+    succ_addr = 0x4000d6
+    fail_addr = 0x4000e7
     inst_addr = inst.getAddress()
-    flag = []
+    flag = list(map(lambda x: ord(x), known_flag))
+
+    ### TODO
+    # for op in inst.getOperands():
+    #     print '\t', op
+    #     if op.getType() == OPERAND.MEM:
+    #         print '\t\t base  : ', op.getBaseRegister()
+    #         print '\t\t index : ', op.getIndexRegister()
+    #         print '\t\t disp  : ', op.getDisplacement()
+    #         print '\t\t scale : ', op.getScale()
+    # print
+
+    print(yellow_str("inst_addr = %#x" % inst_addr))
 
     if inst_addr == succ_addr: # Reached to success state
         print(yellow_str("[*] FLAG FOUND!! %s" % known_flag))
@@ -73,13 +79,11 @@ def mycb(inst):
                             user_logger("no solutions\n")
         if len(flag):
             exit()
+        stopProgram()
     return
 
 if __name__ == '__main__':
     global argv1, known_flag
-    global REG_RDI, REG_RSI, REG_RDX, REG_RAX, REG_RSP
-    argv1_ptr = 0x7f0000
-    argv1 = 0x400000
 
     # Setup argv
     argv = argv[2:]
@@ -88,32 +92,26 @@ if __name__ == '__main__':
     # Setup arch
     setArchitecture(ARCH.VEX_X86_64)
 
-    # Generate registers
-    ai = archinfo.ArchAMD64()
-    REG_RDI = Register(ai.registers["rdi"][0], 0)
-    REG_RSI = Register(ai.registers["rsi"][0], 0)
-    REG_RDX = Register(ai.registers["rdx"][0], 0)
-    REG_RAX = Register(ai.registers["rax"][0], 0)
-    REG_RSP = Register(ai.registers["rsp"][0], 0)
-
     enableMode(MODE.PC_TRACKING_SYMBOLIC, False)
 
     # Start JIT at the entry point, or insertCall callback won't be called
     startAnalysisFromEntry()
 
-    # Fix entry address
-    start_addr = abs_addr(0x4000ae)
-    startAnalysisFromAddress(start_addr) # NOTE: mark analysisTrigger.update(true) in callback::preProcessing()
+    start_addr = 0x4000ae
+    # start_addr = 0x4000a5
     setEmuStartAddr(start_addr)
+    startAnalysisFromAddress(start_addr) # NOTE: mark analysisTrigger.update(true) in callback::preProcessing()
 
     # Add callback
     insertCall(mycb, INSERT_POINT.BEFORE)
     insertCall(handle_syscall, INSERT_POINT.SYSCALL_ENTRY)
 
-    # Prepare fake stack
-    print(REG.RSP)
-    setCurrentRegisterValue(REG.RSP, argv1_ptr - 0x18)
-    setConcreteMemoryValue(MemoryAccess(argv1_ptr, CPUSIZE.DWORD, argv1)) # `mov dword [argv1_ptr], argv1`
+    # Prepare dummy stack
+    argv1_ptr = getCurrentRegisterValue(REG.RSP) + 0x10
+    argv1 = getCurrentRegisterValue(REG.RSP) + 0x100
+    print(yellow_str("argv1_ptr = %#x" % argv1_ptr))
+    print(yellow_str("argv1 = %#x" % argv1))
+    setConcreteMemoryValue(MemoryAccess(argv1_ptr, CPUSIZE.QWORD, argv1)) # `mov dword [argv1_ptr], argv1`
 
     # Symbolize argv[1]
     setCurrentRegisterValue(REG.RAX, argv1)
@@ -123,7 +121,9 @@ if __name__ == '__main__':
     if len(argv) > 1:
         known_flag = argv[1]
         for i in range(len(known_flag)):
-            setConcreteMemoryValue(MemoryAccess(argv1 + i, CPUSIZE.BYTE, ord(known_flag[i])))
+            ### write argv[1] to Uncorn's memory
+            setCurrentMemoryValue(MemoryAccess(argv1 + i, CPUSIZE.BYTE, ord(known_flag[i]))) # => segmentation fault
+            # setCurrentMemoryValue(argv1 + i, ord(known_flag[i])) # => OK
 
     # Run Program
     runProgram()

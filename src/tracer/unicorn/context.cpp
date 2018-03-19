@@ -253,16 +253,29 @@ namespace tracer {
         #endif
 
         if (currentArch == triton::arch::ARCH_VEX_X86_64) {
-          triton::logger::info("tracer::unicorn::context::getCurrentRegisterValue(): regId = 0x%x, parentId = 0x%x (%d)", reg.getId(), reg.getParent().getId(), reg.getParent().getId());
+          tracer::unicorn::log::info("tracer::unicorn::context::getCurrentRegisterValue(): regId = 0x%x, parentId = 0x%x (%d)", reg.getId(), reg.getParent().getId(), reg.getParent().getId());
 
           // Do not fetch value from unicorn. Fetch from Triton
           if (reg.getParent().getId() >= triton::arch::vex::ID_REG_TMP)
             throw std::runtime_error("tracer::unicorn::context::getCurrentRegisterValue(): Do not pass tmp register.");
 
-          // FIXME: use archinfo
-          switch (reg.getParent().getId()) {
+          switch (reg.getParent().getId()) { //getID() is offset of Vex register
             case  16:   UC_GetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_RAX,    reinterpret_cast<triton::uint8*>(buffer)); break;
+            case  24:   UC_GetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_RCX,    reinterpret_cast<triton::uint8*>(buffer)); break;
+            case  32:   UC_GetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_RDX,    reinterpret_cast<triton::uint8*>(buffer)); break;
+            case  40:   UC_GetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_RBX,    reinterpret_cast<triton::uint8*>(buffer)); break;
             case  48:   UC_GetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_RSP,    reinterpret_cast<triton::uint8*>(buffer)); break;
+            case  56:   UC_GetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_RBP,    reinterpret_cast<triton::uint8*>(buffer)); break;
+            case  64:   UC_GetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_RSI,    reinterpret_cast<triton::uint8*>(buffer)); break;
+            case  72:   UC_GetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_RDI,    reinterpret_cast<triton::uint8*>(buffer)); break;
+            case  80:   UC_GetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_R8,     reinterpret_cast<triton::uint8*>(buffer)); break;
+            case  88:   UC_GetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_R9,     reinterpret_cast<triton::uint8*>(buffer)); break;
+            case  96:   UC_GetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_R10,    reinterpret_cast<triton::uint8*>(buffer)); break;
+            case 104:   UC_GetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_R11,    reinterpret_cast<triton::uint8*>(buffer)); break;
+            case 112:   UC_GetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_R12,    reinterpret_cast<triton::uint8*>(buffer)); break;
+            case 120:   UC_GetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_R13,    reinterpret_cast<triton::uint8*>(buffer)); break;
+            case 128:   UC_GetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_R14,    reinterpret_cast<triton::uint8*>(buffer)); break;
+            case 136:   UC_GetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_R15,    reinterpret_cast<triton::uint8*>(buffer)); break;
             case 144:   triton::logger::warn("tracer::unicorn::context::getCurrentRegisterValue(): ommiting cc_op"); return 0; // cc_op; not care
             case 152:   triton::logger::warn("tracer::unicorn::context::getCurrentRegisterValue(): ommiting cc_dep1"); return 0; // cc_dep1: not care
             case 160:   triton::logger::warn("tracer::unicorn::context::getCurrentRegisterValue(): ommiting cc_dep2"); return 0; // cc_dep2: not care
@@ -324,119 +337,162 @@ namespace tracer {
       void setCurrentRegisterValue(triton::arch::Register& reg, triton::uint512 value) {
         std::ostringstream str;
         str << "setCurrentRegisterValue(reg = \'" << reg << "\', value = 0x" << std::hex << value << ")" << std::dec;
-        triton::logger::info(str.str().c_str());
+        tracer::unicorn::log::info(str.str().c_str());
 
         triton::uint8 buffer[DQQWORD_SIZE] = {0};
 
-        if (reg.getId() != reg.getParent().getId() || triton::api.isFlag(reg))
-          throw std::runtime_error("tracer::unicorn::context::setCurrentRegisterValue(): You cannot set a Pin register value on a sub-register or a flag.");
+        auto currentArch = triton::api.getArchitecture();
 
-        triton::utils::fromUintToBuffer(value, buffer);
+        if (currentArch == triton::arch::ARCH_X86_64) {
 
-        #if defined(__x86_64__) || defined(_M_X64)
-          switch (reg.getId()) {
-            case triton::arch::x86::ID_REG_RAX:     UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_RAX,    reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_RBX:     UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_RBX,    reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_RCX:     UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_RCX,    reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_RDX:     UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_RDX,    reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_RDI:     UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_RDI,    reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_RSI:     UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_RSI,    reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_RBP:     UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_RBP,    reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_RSP:     UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_RSP,    reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_RIP:     UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_RIP,    reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_EFLAGS:  UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_EFLAGS, reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_R8:      UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_R8,     reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_R9:      UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_R9,     reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_R10:     UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_R10,    reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_R11:     UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_R11,    reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_R12:     UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_R12,    reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_R13:     UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_R13,    reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_R14:     UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_R14,    reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_R15:     UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_R15,    reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_XMM0:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_XMM0,   reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_XMM1:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_XMM1,   reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_XMM2:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_XMM2,   reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_XMM3:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_XMM3,   reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_XMM4:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_XMM4,   reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_XMM5:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_XMM5,   reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_XMM6:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_XMM6,   reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_XMM7:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_XMM7,   reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_XMM8:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_XMM8,   reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_XMM9:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_XMM9,   reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_XMM10:   UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_XMM10,  reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_XMM11:   UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_XMM11,  reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_XMM12:   UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_XMM12,  reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_XMM13:   UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_XMM13,  reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_XMM14:   UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_XMM14,  reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_XMM15:   UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_XMM15,  reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_YMM0:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_YMM0,   reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_YMM1:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_YMM1,   reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_YMM2:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_YMM2,   reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_YMM3:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_YMM3,   reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_YMM4:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_YMM4,   reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_YMM5:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_YMM5,   reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_YMM6:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_YMM6,   reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_YMM7:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_YMM7,   reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_YMM8:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_YMM8,   reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_YMM9:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_YMM9,   reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_YMM10:   UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_YMM10,  reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_YMM11:   UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_YMM11,  reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_YMM12:   UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_YMM12,  reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_YMM13:   UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_YMM13,  reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_YMM14:   UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_YMM14,  reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_YMM15:   UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_YMM15,  reinterpret_cast<triton::uint8*>(buffer)); break;
-            // case triton::arch::x86::ID_REG_MXCSR:   UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_MXCSR,  reinterpret_cast<triton::uint8*>(buffer)); break;
-            /* Unicorn does not support MXCSR */
-            case triton::arch::x86::ID_REG_CS:      UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_CS, reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_DS:      UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_DS, reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_ES:      UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_ES, reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_FS:      UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_FS, reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_GS:      UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_GS, reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_SS:      UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_SS, reinterpret_cast<triton::uint8*>(buffer)); break;
-            default:
-              throw std::runtime_error("tracer::unicorn::context::setCurrentRegisterValue(): Invalid register.");
+          if (reg.getId() != reg.getParent().getId() || triton::api.isFlag(reg))
+            throw std::runtime_error("tracer::unicorn::context::setCurrentRegisterValue(): You cannot set a Pin register value on a sub-register or a flag.");
+
+          triton::utils::fromUintToBuffer(value, buffer);
+
+          #if defined(__x86_64__) || defined(_M_X64)
+            switch (reg.getId()) {
+              case triton::arch::x86::ID_REG_RAX:     UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_RAX,    reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_RBX:     UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_RBX,    reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_RCX:     UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_RCX,    reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_RDX:     UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_RDX,    reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_RDI:     UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_RDI,    reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_RSI:     UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_RSI,    reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_RBP:     UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_RBP,    reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_RSP:     UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_RSP,    reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_RIP:     UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_RIP,    reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_EFLAGS:  UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_EFLAGS, reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_R8:      UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_R8,     reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_R9:      UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_R9,     reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_R10:     UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_R10,    reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_R11:     UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_R11,    reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_R12:     UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_R12,    reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_R13:     UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_R13,    reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_R14:     UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_R14,    reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_R15:     UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_R15,    reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_XMM0:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_XMM0,   reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_XMM1:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_XMM1,   reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_XMM2:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_XMM2,   reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_XMM3:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_XMM3,   reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_XMM4:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_XMM4,   reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_XMM5:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_XMM5,   reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_XMM6:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_XMM6,   reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_XMM7:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_XMM7,   reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_XMM8:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_XMM8,   reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_XMM9:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_XMM9,   reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_XMM10:   UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_XMM10,  reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_XMM11:   UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_XMM11,  reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_XMM12:   UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_XMM12,  reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_XMM13:   UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_XMM13,  reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_XMM14:   UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_XMM14,  reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_XMM15:   UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_XMM15,  reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_YMM0:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_YMM0,   reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_YMM1:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_YMM1,   reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_YMM2:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_YMM2,   reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_YMM3:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_YMM3,   reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_YMM4:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_YMM4,   reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_YMM5:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_YMM5,   reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_YMM6:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_YMM6,   reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_YMM7:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_YMM7,   reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_YMM8:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_YMM8,   reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_YMM9:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_YMM9,   reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_YMM10:   UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_YMM10,  reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_YMM11:   UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_YMM11,  reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_YMM12:   UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_YMM12,  reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_YMM13:   UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_YMM13,  reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_YMM14:   UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_YMM14,  reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_YMM15:   UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_YMM15,  reinterpret_cast<triton::uint8*>(buffer)); break;
+              // case triton::arch::x86::ID_REG_MXCSR:   UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_MXCSR,  reinterpret_cast<triton::uint8*>(buffer)); break;
+              /* Unicorn does not support MXCSR */
+              case triton::arch::x86::ID_REG_CS:      UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_CS, reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_DS:      UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_DS, reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_ES:      UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_ES, reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_FS:      UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_FS, reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_GS:      UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_GS, reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_SS:      UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_SS, reinterpret_cast<triton::uint8*>(buffer)); break;
+              default:
+                throw std::runtime_error("tracer::unicorn::context::setCurrentRegisterValue(): Invalid register.");
+            }
+          #endif
+        }
+
+        if (currentArch == triton::arch::ARCH_X86) {
+          if (reg.getId() != reg.getParent().getId() || triton::api.isFlag(reg))
+            throw std::runtime_error("tracer::unicorn::context::setCurrentRegisterValue(): You cannot set a Pin register value on a sub-register or a flag.");
+
+          triton::utils::fromUintToBuffer(value, buffer);
+
+          #if defined(__i386) || defined(_M_IX86)
+            switch (reg.getId()) {
+              case triton::arch::x86::ID_REG_EAX:     UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_EAX,    reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_EBX:     UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_EBX,    reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_ECX:     UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_ECX,    reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_EDX:     UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_EDX,    reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_EDI:     UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_EDI,    reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_ESI:     UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_ESI,    reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_EBP:     UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_EBP,    reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_ESP:     UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_ESP,    reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_EIP:     UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_EIP,    reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_EFLAGS:  UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_EFLAGS, reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_XMM0:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_XMM0,   reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_XMM1:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_XMM1,   reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_XMM2:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_XMM2,   reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_XMM3:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_XMM3,   reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_XMM4:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_XMM4,   reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_XMM5:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_XMM5,   reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_XMM6:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_XMM6,   reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_XMM7:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_XMM7,   reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_YMM0:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_YMM0,   reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_YMM1:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_YMM1,   reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_YMM2:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_YMM2,   reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_YMM3:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_YMM3,   reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_YMM4:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_YMM4,   reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_YMM5:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_YMM5,   reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_YMM6:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_YMM6,   reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_YMM7:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_YMM7,   reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_MXCSR:   UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_MXCSR,  reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_CS:      UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_CS, reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_DS:      UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_DS, reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_ES:      UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_ES, reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_FS:      UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_FS, reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_GS:      UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_GS, reinterpret_cast<triton::uint8*>(buffer)); break;
+              case triton::arch::x86::ID_REG_SS:      UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_SS, reinterpret_cast<triton::uint8*>(buffer)); break;
+              default:
+                throw std::runtime_error("tracer::unicorn::context::setCurrentRegisterValue(): Invalid register.");
+            }
+          #endif
+        }
+
+        if (currentArch == triton::arch::ARCH_VEX_X86_64) {
+          tracer::unicorn::log::info("tracer::unicorn::context::setCurrentRegisterValue(): regId = 0x%x, parentId = 0x%x (%d)", reg.getId(), reg.getParent().getId(), reg.getParent().getId());
+
+          // Do not fetch value from unicorn. Fetch from Triton
+          if (reg.getParent().getId() >= triton::arch::vex::ID_REG_TMP)
+            throw std::runtime_error("tracer::unicorn::context::setCurrentRegisterValue(): Do not pass tmp register.");
+
+          triton::utils::fromUintToBuffer(value, buffer);
+
+          switch (reg.getParent().getId()) { // getID() is offset of Vex register
+            case  16:   UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_RAX,    reinterpret_cast<triton::uint8*>(buffer)); break;
+            case  24:   UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_RCX,    reinterpret_cast<triton::uint8*>(buffer)); break;
+            case  32:   UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_RDX,    reinterpret_cast<triton::uint8*>(buffer)); break;
+            case  40:   UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_RBX,    reinterpret_cast<triton::uint8*>(buffer)); break;
+            case  48:   UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_RSP,    reinterpret_cast<triton::uint8*>(buffer)); break;
+            case  56:   UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_RBP,    reinterpret_cast<triton::uint8*>(buffer)); break;
+            case  64:   UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_RSI,    reinterpret_cast<triton::uint8*>(buffer)); break;
+            case  72:   UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_RDI,    reinterpret_cast<triton::uint8*>(buffer)); break;
+            case  80:   UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_R8,     reinterpret_cast<triton::uint8*>(buffer)); break;
+            case  88:   UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_R9,     reinterpret_cast<triton::uint8*>(buffer)); break;
+            case  96:   UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_R10,    reinterpret_cast<triton::uint8*>(buffer)); break;
+            case 104:   UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_R11,    reinterpret_cast<triton::uint8*>(buffer)); break;
+            case 112:   UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_R12,    reinterpret_cast<triton::uint8*>(buffer)); break;
+            case 120:   UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_R13,    reinterpret_cast<triton::uint8*>(buffer)); break;
+            case 128:   UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_R14,    reinterpret_cast<triton::uint8*>(buffer)); break;
+            case 136:   UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_R15,    reinterpret_cast<triton::uint8*>(buffer)); break;
+          default:
+            throw std::runtime_error("tracer::unicorn::context::getCurrentRegisterValue(): Invalid register.");
           }
-        #endif
-
-        #if defined(__i386) || defined(_M_IX86)
-          switch (reg.getId()) {
-            case triton::arch::x86::ID_REG_EAX:     UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_EAX,    reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_EBX:     UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_EBX,    reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_ECX:     UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_ECX,    reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_EDX:     UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_EDX,    reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_EDI:     UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_EDI,    reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_ESI:     UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_ESI,    reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_EBP:     UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_EBP,    reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_ESP:     UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_ESP,    reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_EIP:     UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_EIP,    reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_EFLAGS:  UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_EFLAGS, reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_XMM0:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_XMM0,   reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_XMM1:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_XMM1,   reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_XMM2:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_XMM2,   reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_XMM3:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_XMM3,   reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_XMM4:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_XMM4,   reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_XMM5:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_XMM5,   reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_XMM6:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_XMM6,   reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_XMM7:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_XMM7,   reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_YMM0:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_YMM0,   reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_YMM1:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_YMM1,   reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_YMM2:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_YMM2,   reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_YMM3:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_YMM3,   reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_YMM4:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_YMM4,   reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_YMM5:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_YMM5,   reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_YMM6:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_YMM6,   reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_YMM7:    UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_YMM7,   reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_MXCSR:   UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_MXCSR,  reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_CS:      UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_CS, reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_DS:      UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_DS, reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_ES:      UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_ES, reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_FS:      UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_FS, reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_GS:      UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_GS, reinterpret_cast<triton::uint8*>(buffer)); break;
-            case triton::arch::x86::ID_REG_SS:      UC_SetContextRegval(tracer::unicorn::context::lastContext, UC_X86_REG_SS, reinterpret_cast<triton::uint8*>(buffer)); break;
-            default:
-              throw std::runtime_error("tracer::unicorn::context::setCurrentRegisterValue(): Invalid register.");
-          }
-        #endif
+        }
 
         /* Sync with the libTriton */
         triton::arch::Register syncReg(reg);
@@ -471,7 +527,8 @@ namespace tracer {
         for (triton::uint32 i = 0; i < size; i++) {
           if (UC_CheckWriteAccess(reinterpret_cast<triton::uint8*>((addr+i))) == false)
             throw std::runtime_error("tracer::unicorn::context::setCurrentMemoryValue(): Page not writable.");
-          *((triton::uint8 *)(addr+i)) = (value & 0xff).convert_to<triton::uint8>();
+          tracer::unicorn::log::debug("setCurrentMemoryValue@mem(addr=0x%x, value=0x%x)", addr + i, value);
+          UC_WriteCurrentMem(addr + i, &value, 1);
           value >>= 8;
         }
       }
@@ -488,7 +545,8 @@ namespace tracer {
         triton::api.concretizeMemory(addr);
 
         /* Inject memory value */
-        *((triton::uint8*)(addr)) = (value & 0xff);
+        tracer::unicorn::log::debug("setCurrentMemoryValue@addr(addr=0x%x, value=0x%x)", addr, value);
+        UC_WriteCurrentMem(addr, &value, 1);
       }
 
 
@@ -506,13 +564,13 @@ namespace tracer {
 
         if (triton::api.getArchitecture() == triton::arch::ARCH_VEX_X86_64) {
             if (parentRegid == triton::arch::vex::ID_REG_INVALID || parentRegid >= triton::arch::vex::ID_REG_TMP) {
-              triton::logger::info("needConcreteRegisterValue(): immediate return");
+              tracer::unicorn::log::info("needConcreteRegisterValue(): immediate return");
               // value = triton::api.getConcreteRegisterValue(reg); // DANGER: causes infinite needConcreteRegisterValue() call
               return; // There's nothing to do. Do immediate return!
             }
         }
 
-        triton::logger::info("needConcreteRegisterValue() -> tracer::unicorn::context::getCurrentRegisterValue(reg)");
+        tracer::unicorn::log::info("needConcreteRegisterValue() -> tracer::unicorn::context::getCurrentRegisterValue(reg)");
         std::cout << "\treg = " << reg << std::endl;
         value = tracer::unicorn::context::getCurrentRegisterValue(reg);
         triton::arch::Register tmp(reg.getId(), value);
@@ -521,7 +579,7 @@ namespace tracer {
 
 
       void synchronizeContext(void) {
-        triton::logger::info("synchronizeContext()");
+        tracer::unicorn::log::debug("synchronizeContext()");
         if (triton::api.isSymbolicEngineEnabled() == false)
           return;
 

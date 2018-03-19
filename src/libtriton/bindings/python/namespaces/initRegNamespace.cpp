@@ -10,6 +10,7 @@
 #include <triton/api.hpp>
 #include <triton/architecture.hpp>
 #include <triton/x86Specifications.hpp>
+#include <triton/vexSpecifications.hpp>
 
 
 
@@ -644,8 +645,23 @@ namespace triton {
             break;
 
           case triton::arch::ARCH_VEX_X86_64:
-            PyDict_SetItemString(triton::bindings::python::registersDict, "RAX",    PyRegister(triton::arch::Register(triton::arch::x86::ID_REG_RAX),    0x00, triton::arch::IMMUTABLE_REGISTER));
-            PyDict_SetItemString(triton::bindings::python::registersDict, "RSP",    PyRegister(triton::arch::Register(triton::arch::x86::ID_REG_RIP),    0x00, triton::arch::IMMUTABLE_REGISTER));
+            PyDict_SetItemString(triton::bindings::python::registersDict, "RAX",    PyRegister(triton::arch::Register(triton::arch::vex::x86_64::OFFSET_RAX),    0x00, triton::arch::IMMUTABLE_REGISTER));
+            PyDict_SetItemString(triton::bindings::python::registersDict, "RBX",    PyRegister(triton::arch::Register(triton::arch::vex::x86_64::OFFSET_RBX),    0x00, triton::arch::IMMUTABLE_REGISTER));
+            PyDict_SetItemString(triton::bindings::python::registersDict, "RCX",    PyRegister(triton::arch::Register(triton::arch::vex::x86_64::OFFSET_RCX),    0x00, triton::arch::IMMUTABLE_REGISTER));
+            PyDict_SetItemString(triton::bindings::python::registersDict, "RDX",    PyRegister(triton::arch::Register(triton::arch::vex::x86_64::OFFSET_RDX),    0x00, triton::arch::IMMUTABLE_REGISTER));
+            PyDict_SetItemString(triton::bindings::python::registersDict, "RBP",    PyRegister(triton::arch::Register(triton::arch::vex::x86_64::OFFSET_RBP),    0x00, triton::arch::IMMUTABLE_REGISTER));
+            PyDict_SetItemString(triton::bindings::python::registersDict, "RSP",    PyRegister(triton::arch::Register(triton::arch::vex::x86_64::OFFSET_RSP),    0x00, triton::arch::IMMUTABLE_REGISTER));
+            PyDict_SetItemString(triton::bindings::python::registersDict, "RIP",    PyRegister(triton::arch::Register(triton::arch::vex::x86_64::OFFSET_RIP),    0x00, triton::arch::IMMUTABLE_REGISTER));
+            PyDict_SetItemString(triton::bindings::python::registersDict, "RSI",    PyRegister(triton::arch::Register(triton::arch::vex::x86_64::OFFSET_RSI),    0x00, triton::arch::IMMUTABLE_REGISTER));
+            PyDict_SetItemString(triton::bindings::python::registersDict, "RDI",    PyRegister(triton::arch::Register(triton::arch::vex::x86_64::OFFSET_RDI),    0x00, triton::arch::IMMUTABLE_REGISTER));
+            PyDict_SetItemString(triton::bindings::python::registersDict, "R8",     PyRegister(triton::arch::Register(triton::arch::vex::x86_64::OFFSET_R8),     0x00, triton::arch::IMMUTABLE_REGISTER));
+            PyDict_SetItemString(triton::bindings::python::registersDict, "R9",     PyRegister(triton::arch::Register(triton::arch::vex::x86_64::OFFSET_R9),     0x00, triton::arch::IMMUTABLE_REGISTER));
+            PyDict_SetItemString(triton::bindings::python::registersDict, "R10",    PyRegister(triton::arch::Register(triton::arch::vex::x86_64::OFFSET_R10),    0x00, triton::arch::IMMUTABLE_REGISTER));
+            PyDict_SetItemString(triton::bindings::python::registersDict, "R11",    PyRegister(triton::arch::Register(triton::arch::vex::x86_64::OFFSET_R11),    0x00, triton::arch::IMMUTABLE_REGISTER));
+            PyDict_SetItemString(triton::bindings::python::registersDict, "R12",    PyRegister(triton::arch::Register(triton::arch::vex::x86_64::OFFSET_R12),    0x00, triton::arch::IMMUTABLE_REGISTER));
+            PyDict_SetItemString(triton::bindings::python::registersDict, "R13",    PyRegister(triton::arch::Register(triton::arch::vex::x86_64::OFFSET_R13),    0x00, triton::arch::IMMUTABLE_REGISTER));
+            PyDict_SetItemString(triton::bindings::python::registersDict, "R14",    PyRegister(triton::arch::Register(triton::arch::vex::x86_64::OFFSET_R14),    0x00, triton::arch::IMMUTABLE_REGISTER));
+            PyDict_SetItemString(triton::bindings::python::registersDict, "R15",    PyRegister(triton::arch::Register(triton::arch::vex::x86_64::OFFSET_R15),    0x00, triton::arch::IMMUTABLE_REGISTER));
             break;
         } /* switch */
 

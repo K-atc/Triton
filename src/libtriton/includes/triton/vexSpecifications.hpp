@@ -73,6 +73,77 @@ namespace triton {
         ID_REG_LAST_ITEM = 0x1000 //!< must be the last item
       };
 
+      namespace x86_64 {
+        /*
+        for k, v in sorted(archinfo.ArchAMD64().register_names.items(), key = lambda x:x[0]):
+          print "OFFSET_{} = {},".format(v.upper(), k)
+        */
+        enum offsets_e {
+          OFFSET_RAX = 16,
+          OFFSET_RCX = 24,
+          OFFSET_RDX = 32,
+          OFFSET_RBX = 40,
+          OFFSET_RSP = 48,
+          OFFSET_RBP = 56,
+          OFFSET_RSI = 64,
+          OFFSET_RDI = 72,
+          OFFSET_R8 = 80,
+          OFFSET_R9 = 88,
+          OFFSET_R10 = 96,
+          OFFSET_R11 = 104,
+          OFFSET_R12 = 112,
+          OFFSET_R13 = 120,
+          OFFSET_R14 = 128,
+          OFFSET_R15 = 136,
+          OFFSET_CC_OP = 144,
+          OFFSET_CC_DEP1 = 152,
+          OFFSET_CC_DEP2 = 160,
+          OFFSET_CC_NDEP = 168,
+          OFFSET_DFLAG = 176,
+          OFFSET_RIP = 184,
+          OFFSET_ACFLAG = 192,
+          OFFSET_IDFLAG = 200,
+          OFFSET_FS_CONST = 208,
+          OFFSET_SSEROUND = 216,
+          OFFSET_YMM0 = 224,
+          OFFSET_YMM1 = 256,
+          OFFSET_YMM2 = 288,
+          OFFSET_YMM3 = 320,
+          OFFSET_YMM4 = 352,
+          OFFSET_YMM5 = 384,
+          OFFSET_YMM6 = 416,
+          OFFSET_YMM7 = 448,
+          OFFSET_YMM8 = 480,
+          OFFSET_YMM9 = 512,
+          OFFSET_YMM10 = 544,
+          OFFSET_YMM11 = 576,
+          OFFSET_YMM12 = 608,
+          OFFSET_YMM13 = 640,
+          OFFSET_YMM14 = 672,
+          OFFSET_YMM15 = 704,
+          OFFSET_YMM16 = 736,
+          OFFSET_FTOP = 768,
+          OFFSET_MM0 = 776,
+          OFFSET_MM1 = 784,
+          OFFSET_MM2 = 792,
+          OFFSET_MM3 = 800,
+          OFFSET_MM4 = 808,
+          OFFSET_MM5 = 816,
+          OFFSET_MM6 = 824,
+          OFFSET_MM7 = 832,
+          OFFSET_FPU_TAGS = 840,
+          OFFSET_FPROUND = 848,
+          OFFSET_FC3210 = 856,
+          OFFSET_EMNOTE = 864,
+          OFFSET_CMSTART = 872,
+          OFFSET_CMLEN = 880,
+          OFFSET_NRADDR = 888,
+          OFFSET_SC_CLASS = 896,
+          OFFSET_GS_CONST = 904,
+          OFFSET_IP_AT_SYSCALL = 912,
+        };
+      }
+
       //! Global set of registers.
       extern triton::arch::Register vex_regs[ID_REG_TMP];
 
