@@ -98,23 +98,25 @@ if __name__ == '__main__':
     startAnalysisFromEntry()
 
     start_addr = 0x4000ae
-    # start_addr = 0x4000a5
+    start_addr = 0x4000a5
     setEmuStartAddr(start_addr)
-    startAnalysisFromAddress(start_addr) # NOTE: mark analysisTrigger.update(true) in callback::preProcessing()
+    binary = Elf(argv[0]) # NOTE: we must use lief insted of Triton's parser
+    entry_point = binary.getHeader().getEntry()
+    startAnalysisFromAddress(entry_point) # NOTE: mark analysisTrigger.update(true) in callback::preProcessing()
 
-    # Add callback
+    ### Add callback
     insertCall(mycb, INSERT_POINT.BEFORE)
     insertCall(handle_syscall, INSERT_POINT.SYSCALL_ENTRY)
 
-    # Prepare dummy stack
+    ### Prepare dummy stack
     argv1_ptr = getCurrentRegisterValue(REG.RSP) + 0x10
     argv1 = getCurrentRegisterValue(REG.RSP) + 0x100
-    print(yellow_str("argv1_ptr = %#x" % argv1_ptr))
-    print(yellow_str("argv1 = %#x" % argv1))
-    setConcreteMemoryValue(MemoryAccess(argv1_ptr, CPUSIZE.QWORD, argv1)) # `mov dword [argv1_ptr], argv1`
+    # print(yellow_str("argv1_ptr = %#x" % argv1_ptr))
+    # print(yellow_str("argv1 = %#x" % argv1))
+    setCurrentMemoryValue(MemoryAccess(argv1_ptr, CPUSIZE.QWORD, argv1)) # `mov dword [argv1_ptr], argv1`
 
-    # Symbolize argv[1]
-    setCurrentRegisterValue(REG.RAX, argv1)
+    ### Symbolize argv[1]
+    # setCurrentRegisterValue(REG.RAX, argv1)
     for offset in range(4 * 4):
         convertMemoryToSymbolicVariable(MemoryAccess(argv1 + offset, CPUSIZE.BYTE))
     known_flag = ""
@@ -122,10 +124,10 @@ if __name__ == '__main__':
         known_flag = argv[1]
         for i in range(len(known_flag)):
             ### write argv[1] to Uncorn's memory
-            setCurrentMemoryValue(MemoryAccess(argv1 + i, CPUSIZE.BYTE, ord(known_flag[i]))) # => segmentation fault
+            setCurrentMemoryValue(MemoryAccess(argv1 + i, CPUSIZE.BYTE, ord(known_flag[i])))
             # setCurrentMemoryValue(argv1 + i, ord(known_flag[i])) # => OK
 
-    # Run Program
+    ### Run Program
     runProgram()
 
     print "[*] analysis finished"

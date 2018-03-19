@@ -523,10 +523,10 @@ bool UC_LoadElf(int argc, char* argv[])
     uc_reg_read(uc, UC_X86_REG_RSP, &rsp);
     uc_reg_write(uc, UC_X86_REG_RBP, &rsp);
 
-    // #ifndef NDEBUG
-    //     // print executed codes (debug purpose)
-    //     uc_hook_add(uc, &trace2, UC_HOOK_CODE, (void *)hook_code64, NULL, 1, 0);
-    // #endif
+    #if 0
+        // print executed codes (debug purpose)
+        uc_hook_add(uc, &trace2, UC_HOOK_CODE, (void *)hook_code64, NULL, 1, 0);
+    #endif
     // intercept invalid memory events
     uc_hook_add(uc, &trace3, UC_HOOK_MEM_READ_UNMAPPED | UC_HOOK_MEM_WRITE_UNMAPPED, (void *)hook_mem_invalid, NULL, 1, 0);
     // prepare hooks for syscall

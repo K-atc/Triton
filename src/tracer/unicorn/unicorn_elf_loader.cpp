@@ -161,7 +161,7 @@ void hook_code64(uc_engine *uc, uint64_t address, uint32_t size, void *user_data
         if (count > 0) {
             printf("\t0x%lx:\t%s\t\t%s\n",
                 insn[0].address, insn[0].mnemonic, insn[0].op_str);
-            #if 0
+            #if 1
                 uint64_t rax, rsi, rsp;
                 uint32_t dword_ptr_ref = 0;
                 uc_reg_read(uc, UC_X86_REG_RAX, &rax);
